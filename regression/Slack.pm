@@ -26,7 +26,7 @@ require Exporter;
 use strict;
 use warnings;
 
-use JSON;   #  converters/p5-JSON-XS ; www/p5-JSON-API
+use JSON::PP;
 use FindBin;
 
 #  Fail if we don't have a slack token defined.
@@ -39,7 +39,7 @@ sub checkSlack () {
 #  Post the input hash reference to slack.
 sub postToSlack ($) {
     my $json          = shift @_;
-    my $jsonformatter = JSON->new();
+    my $jsonformatter = JSON::PP->new();
     my $encoded       = $jsonformatter->pretty->encode($json);
     my $authtoken     = $ENV{'CANU_REGRESSION_TOKEN'};
 
@@ -68,7 +68,7 @@ sub postHeading ($) {
     my $mesg = shift @_;
     my $json = {};
     my $text = {};
-    my $jsonformatter = JSON->new();
+    my $jsonformatter = JSON::PP->new();
 
     return   if (!defined($mesg));
 
@@ -97,7 +97,7 @@ sub postFile ($$) {
     my $file = shift @_;
     my $text;
     my $json = {};
-    my $jsonformatter = JSON->new();
+    my $jsonformatter = JSON::PP->new();
 
     postHeading($mesg);
 
@@ -131,7 +131,7 @@ sub postText ($$) {
     my $mesg = shift @_;
     my $text = shift @_;
     my $json = {};
-    my $jsonformatter = JSON->new();
+    my $jsonformatter = JSON::PP->new();
 
     postHeading($mesg);
 
