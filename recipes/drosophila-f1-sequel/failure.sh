@@ -10,10 +10,11 @@ if [ "x$SGE_ROOT" != "x" -a \
   . $SGE_ROOT/$SGE_CELL/common/settings.sh
 fi
 
-regr=`pwd`
-regr=`dirname $regr`
-regr=`basename $regr`
+regr=`pwd`              # e.g., /assembly/canu-regression/2020-05-21-1327-master-cafc287f0c6a/drosophila-f1-hifi-24k
+recp=`basename $regr`   # e.g., drosophila-f1-hifi-24k
+regr=`dirname $regr`    # e.g., /assembly/canu-regression/2020-05-21-1327-master-cafc287f0c6a
+regr=`basename $regr`   # e.g., 2020-05-21-1327-master-cafc287f0c6a
 
-perl ../../compare.pl -recipe drosophila-f1-sequel -regression $regr -fail
+perl ../../compare.pl -recipe $recp -regression $regr -fail
 
 exit 0

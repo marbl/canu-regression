@@ -88,12 +88,14 @@ save-file  unitigging/4-unitigger/asm.best.edges
 save-file  unitigging/4-unitigger/unitigger.err
 
 save-file  quast/report.txt
-
-save-file  quast/transposed_report.txt
-
+save-file  quast/report.txt.filtered
 save-file  quast/contigs_reports/misassemblies_report.txt
 save-file  quast/contigs_reports/transposed_report_misassemblies.txt
 save-file  quast/contigs_reports/unaligned_report.txt
+save-file  quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info
+save-file  quast/contigs_reports/contigs_report_asm-contigs.unaligned.info
+save-file  quast/contigs_reports/contigs_report_asm-contigs.stdout
+save-file  quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered
 
 echo "Done!"
 

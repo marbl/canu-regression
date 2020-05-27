@@ -44,14 +44,18 @@ my $branch   = "master";
 my $hash     = undef;
 my $regr     = undef;      #  Eventually set to "$date-$branch-$hash"
 my $tests    = undef;
+my @recipes;
 
 while (scalar(@ARGV) > 0) {
     my $arg  = shift @ARGV;
     my $test = $arg;
+    my $recp = $arg;
 
     $test =~ s/-//;
     $test =~ tr/a-z/A-Z/;
     $test =  "zzz$test";
+
+    $recp =~ s!recipes/!!;
 
     if    ($arg eq "-help") {
         $doHelp = 1;
@@ -88,10 +92,11 @@ while (scalar(@ARGV) > 0) {
         $date = shift @ARGV;
     }
 
-    elsif ($arg eq "-quick")   {  $tests = "zzzQUICK";   }
-    elsif ($arg eq "-daily")   {  $tests = "zzzDAILY";   }
-    elsif ($arg eq "-weekly")  {  $tests = "zzzWEEKLY";  }
-    elsif (-e "recipes/$test") {  $tests = $test;        }
+    elsif ($arg eq "-quick")             {  $tests = "zzzQUICK";   }
+    elsif ($arg eq "-daily")             {  $tests = "zzzDAILY";   }
+    elsif ($arg eq "-weekly")            {  $tests = "zzzWEEKLY";  }
+    elsif (-e "recipes/$test")           {  $tests = $test;        }
+    elsif (-e "recipes/$recp/submit.sh") {  push @recipes, $recp;  }
 
     else {
         die "unknown option '$arg'.\n";
@@ -106,7 +111,7 @@ $doHelp = 1   if ((defined($tests)) && (! -e "recipes/$tests"));
 checkSlack();
 
 if ($doHelp) {
-    print "usage: $0 ...\n";
+    print "usage: $0 [options] [recipe-class | recipe-list]\n";
     print "  -(no-)fetch  Fetch (or not) updates to the repository.\n";
     print "\n";
     print "BRANCH SELECTION\n";
@@ -325,13 +330,13 @@ if (! -e "$wrkdir/$regr/canu/src/make.err") {
     close(F);
 
     if ($isOK) {
-        postText(undef, $ot);
+        postCodeBlock(undef, $ot);
         postHeading(":canu_success: *Build was successful*.");
     }
 
     else {
-        postText(undef, $ot);
-        postText(undef, $ce);
+        postCodeBlock(undef, $ot);
+        postCodeBlock(undef, $ce);
         postHeading(":canu_fail: *BUILD FAILED*.");
 
         exit(1);
@@ -339,27 +344,30 @@ if (! -e "$wrkdir/$regr/canu/src/make.err") {
 }
 
 #
-#  Find stuff to run.
+#  Find stuff to run.  We were either given a specific recipe to use, or a
+#  recipe file.
 #
 
-if (!defined($tests)) {
-    print "STOPPING beacuse no tests specified.\n";
-    exit(0);
+#if (-e "recipes/$tests/submit.sh") {
+#    push @recipes, $tests;
+#}
+
+if (defined($tests) && -e "recipes/$tests") {
+    open(F, "< recipes/$tests");
+    while (<F>) {
+        chomp;
+        push @recipes, "$_"   if (-e "recipes/$_/submit.sh");
+    }
+    close(F);
 }
 
+#
+#  And run them.
+#
 
-my @recipes;
-
-open(F, "< recipes/$tests");
-while (<F>) {
-    chomp;
-    push @recipes, "$_"   if (-e "recipes/$_/submit.sh");
+if (scalar(@recipes) == 0) {
+    print "NO RECIPES supplied; no tests started.\n";
 }
-close(F);
-
-#
-#  And run it.
-#
 
 foreach my $recipe (@recipes) {
     print "START recipe $recipe.\n";
@@ -367,9 +375,10 @@ foreach my $recipe (@recipes) {
     postHeading("Starting recipe $recipe in $regr.");
 
     my $lerr = system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
-    my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh > $recipe-submit.err 2>&1");
+    my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
 
     if ($eerr) {
         postHeading("FAILED to start recipe $recipe.");
+        postFile(undef, "$wrkdir/$regr/$recipe-submit.err");
     }
 }

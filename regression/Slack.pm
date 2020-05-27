@@ -21,7 +21,7 @@ package Slack;
 require Exporter;
 
 @ISA    = qw(Exporter);
-@EXPORT = qw(checkSlack postHeading postFile postText);
+@EXPORT = qw(checkSlack postHeading postFile postCodeBlock postFormattedText);
 
 use strict;
 use warnings;
@@ -127,7 +127,7 @@ sub postFile ($$) {
 #  Posts a (multi-line) string as a code block.
 #  DO NOT pre-format the text as a code block.
 #
-sub postText ($$) {
+sub postCodeBlock ($$) {
     my $mesg = shift @_;
     my $text = shift @_;
     my $json = {};
@@ -146,6 +146,22 @@ sub postText ($$) {
     }
 }
 
+
+sub postFormattedText ($$) {
+    my $mesg = shift @_;
+    my $text = shift @_;
+    my $json = {};
+    my $jsonformatter = JSON::PP->new();
+
+    postHeading($mesg);
+
+    if ($text ne "") {
+        $json->{'type'} = "mrkdwn";
+        $json->{'text'} = $text;
+
+        postToSlack($json);
+    }
+}
 
 
 1;

@@ -25,20 +25,22 @@ if [ -e /work/software/bin/quast.py ] ; then
   quast="/work/software/bin/quast.py"
 fi
 
+
 if [ ! -e quast/report.txt ] ; then
   $quast \
-    --threads 1 \
+    --threads 4 \
     --min-identity 90. \
     --skip-unaligned-mis-contigs \
-    --min-alignment 200 \
-    --extensive-mis-size 100 \
-    --min-contig 1000 \
+    --min-alignment 20000 \
+    --extensive-mis-size 500000 \
+    --min-contig 1000000 \
     -r ../../recipes/$recp/reference.fasta \
     -o quast \
     $prefix.contigs.fasta \
   >  quast.log
   2> quast.err
 fi
+
 
 perl ../../compare.pl -recipe $recp -regression $regr
 
