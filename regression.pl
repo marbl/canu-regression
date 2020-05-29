@@ -152,13 +152,13 @@ if ($doFetch) {
         postHeading("*Cloning Canu* into '$gitrepo'.");
 
         system("mkdir -p $gitrepo");
-        system("cd $gitrepo && git clone git\@github.com:marbl/canu.git . >> clone.err 2>&1");
-        system("cd $gitrepo && git submodule init                         >> submo.err  2>&1");
+        system("git clone http://github.com/marbl/canu.git $gitrepo > clone.err 2>&1");
+        system("cd $gitrepo && git submodule init > submo.err 2>&1");
 
-        postFile(undef, "$gitrepo/clone.err");
+        postFile(undef,          "clone.err");
         postFile(undef, "$gitrepo/submo.err");
 
-        unlink "$gitrepo/clone.err";
+        unlink          "clone.err";
         unlink "$gitrepo/submo.err";
     }
     else {
@@ -166,9 +166,9 @@ if ($doFetch) {
 
         postHeading("*Updating Canu* in '$gitrepo'.");
 
-        system("cd $gitrepo && git fetch >> fetch.err 2>&1");
-        system("cd $gitrepo && git merge --stat -q >> merge.err 2>&1");
-        system("cd $gitrepo && git submodule update --remote --merge >> submo.err 2>&1");
+        system("cd $gitrepo && git fetch > fetch.err 2>&1");
+        system("cd $gitrepo && git merge --stat -q > merge.err 2>&1");
+        system("cd $gitrepo && git submodule update --remote --merge > submo.err 2>&1");
 
         postFile(undef, "$gitrepo/fetch.err");
         postFile(undef, "$gitrepo/merge.err");
@@ -287,8 +287,8 @@ if (! -e "$wrkdir/$regr/canu/src/make.err") {
 
     postHeading("*Building* branch '$branch'.");
 
-    system("cd $wrkdir/$regr/canu/src && gmake -j 12 > make.out 2> make.err");   #  Once, with threads.
-    system("cd $wrkdir/$regr/canu/src && gmake       > make.out 2> make.err");   #  Again, without, to get errors.
+    system("cd $wrkdir/$regr/canu/src && gmake -j 8 > make.out 2> make.err");   #  Once, with threads.
+    system("cd $wrkdir/$regr/canu/src && gmake      > make.out 2> make.err");   #  Again, without, to get errors.
 
     #
     #  Check for compilation errors.
