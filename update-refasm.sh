@@ -37,7 +37,7 @@ mkdir -p ../../recipes/$asmn/refasm-$regr
 rm -f    ../../recipes/$asmn/refasm
 ln -s    refasm-$regr ../../recipes/$asmn/refasm
 
-save-file() {
+saveFile() {
     for arg in "$@" ; do
         dir=`dirname  $arg`
         nam=`basename $arg`
@@ -50,52 +50,52 @@ save-file() {
     done
 }
 
-save-file  asm.report
+saveFile  asm.report
 
-save-file  asm.seqStore/errorLog
-save-file  asm.seqStore/info.txt
+saveFile  asm.seqStore/errorLog
+saveFile  asm.seqStore/info.txt
 
-save-file  asm.seqStore/readlengths-cor.png
-save-file  asm.seqStore/readlengths-obt.png
-save-file  asm.seqStore/readlengths-utg.png
+saveFile  asm.seqStore/readlengths-cor.png
+saveFile  asm.seqStore/readlengths-obt.png
+saveFile  asm.seqStore/readlengths-utg.png
 
-save-file  asm.seqStore/readlengths-cor.dat
-save-file  asm.seqStore/readlengths-obt.dat
-save-file  asm.seqStore/readlengths-utg.dat
+saveFile  asm.seqStore/readlengths-cor.dat
+saveFile  asm.seqStore/readlengths-obt.dat
+saveFile  asm.seqStore/readlengths-utg.dat
 
-save-file  asm.correctedReads.fasta.gz
-save-file  asm.trimmedReads.fasta.gz
+saveFile  asm.correctedReads.fasta.gz
+saveFile  asm.trimmedReads.fasta.gz
 
-save-file  asm.contigs.fasta
-save-file  asm.contigs.layout.readToTig
-save-file  asm.contigs.layout.tigInfo
+saveFile  asm.contigs.fasta
+saveFile  asm.contigs.layout.readToTig
+saveFile  asm.contigs.layout.tigInfo
 
-save-file  canu-scripts/
+saveFile  canu-scripts/
 
-save-file  correction/asm.loadCorrectedReads.log
-save-file  correction/2-correction/asm.readsToCorrect.log
+saveFile  correction/asm.loadCorrectedReads.log
+saveFile  correction/2-correction/asm.readsToCorrect.log
 
-save-file  trimming/3-overlapbasedtrimming/asm.1.trimReads.log
-save-file  trimming/3-overlapbasedtrimming/asm.2.splitReads.log
+saveFile  trimming/3-overlapbasedtrimming/asm.1.trimReads.log
+saveFile  trimming/3-overlapbasedtrimming/asm.2.splitReads.log
 
-save-file  unitigging/3-overlapErrorAdjustment/red.red
-save-file  unitigging/4-unitigger/asm.001.filterOverlaps.thr000.num000.log
-save-file  unitigging/4-unitigger/asm.003.buildGreedy.sizes
-save-file  unitigging/4-unitigger/asm.010.mergeOrphans.thr000.num000.log
-save-file  unitigging/4-unitigger/asm.012.breakRepeats.thr000.num000.log
-save-file  unitigging/4-unitigger/asm.012.breakRepeats.sizes
-save-file  unitigging/4-unitigger/asm.best.edges
-save-file  unitigging/4-unitigger/unitigger.err
+saveFile  unitigging/3-overlapErrorAdjustment/red.red
+saveFile  unitigging/4-unitigger/asm.001.filterOverlaps.thr000.num000.log
+saveFile  unitigging/4-unitigger/asm.003.buildGreedy.sizes
+saveFile  unitigging/4-unitigger/asm.010.mergeOrphans.thr000.num000.log
+saveFile  unitigging/4-unitigger/asm.012.breakRepeats.thr000.num000.log
+saveFile  unitigging/4-unitigger/asm.012.breakRepeats.sizes
+saveFile  unitigging/4-unitigger/asm.best.edges
+saveFile  unitigging/4-unitigger/unitigger.err
 
-save-file  quast/report.txt
-save-file  quast/report.txt.filtered
-save-file  quast/contigs_reports/misassemblies_report.txt
-save-file  quast/contigs_reports/transposed_report_misassemblies.txt
-save-file  quast/contigs_reports/unaligned_report.txt
-save-file  quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info
-save-file  quast/contigs_reports/contigs_report_asm-contigs.unaligned.info
-save-file  quast/contigs_reports/contigs_report_asm-contigs.stdout
-save-file  quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered
+saveFile  quast/report.txt
+saveFile  quast/report.txt.filtered
+saveFile  quast/contigs_reports/misassemblies_report.txt
+saveFile  quast/contigs_reports/transposed_report_misassemblies.txt
+saveFile  quast/contigs_reports/unaligned_report.txt
+saveFile  quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info
+saveFile  quast/contigs_reports/contigs_report_asm-contigs.unaligned.info
+saveFile  quast/contigs_reports/contigs_report_asm-contigs.stdout
+saveFile  quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered
 
 echo "Done!"
 
