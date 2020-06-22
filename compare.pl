@@ -52,7 +52,11 @@ sub readFile ($$$) {
         close(F);
     }
 
-    return($lines);
+    if (!defined($lines)) {
+        return(undef);
+    }
+
+    return("${file}:\n```\n${lines}```\n");
 }
 
 
@@ -293,6 +297,8 @@ my $regression = undef;
 my $asm        = "asm";
 my $failed     = 0;
 my $md5        = "md5sum";
+my $postSlack  = 1;
+my $refregr    = "(nothing)";
 
 $md5 = "/sbin/md5"         if (-e "/sbin/md5");         #  BSDs.
 $md5 = "/usr/bin/md5sum"   if (-e "/usr/bin/md5sum");   #  Linux.
@@ -319,6 +325,10 @@ while (scalar(@ARGV) > 0) {
 
     elsif ($arg eq "-fail") {
         $failed = 1;
+    }
+
+    elsif ($arg eq "-no-slack") {
+        $postSlack = 0;
     }
 
     else {
@@ -360,15 +370,33 @@ if ($failed) {
 
     my $lines = join "", @lines;
 
-    postHeading(":bangbang: *$recipe* crashed in _${regression}_.");
-    postCodeBlock(undef, $lines);
+    if ($postSlack == 1) {
+        postHeading(":bangbang: *$recipe* crashed in _${regression}_.");
+        postCodeBlock(undef, $lines);
+    } else {
+        print STDERR ("BANG $recipe crashed in ${regression}.");
+        print STDERR $lines;
+    }
 
     exit(1);
 }
 
 my @dr;
 
+#  Attempt to figure out what we're comparing against.
 
+{
+    open(F, "ls -l ../../recipes/$recipe |");
+    while (<F>) {
+        if (m/refasm\s->\srefasm-(20.*-............)$/) {
+            $refregr = $1;
+        }
+    }
+    close(F);
+}
+
+
+#  Prepare for comparision!
 
 my $IGNF = "";   #  To just ignore these reports.
 my $newf = "";
@@ -380,9 +408,12 @@ my $faif = "";
 my $IGNC = 0;
 my $difc = 0;
 
-my $report = "REPORT for ${regression} ${recipe}.\n\n";
+my $report;
 my @logs;
 
+$report  = "*Report* for ${recipe}.\n";
+$report .= "*Compare* ${regression} against reference ${refregr}.\n";
+$report .= "\n";
 
 my $d00 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.report");
 
@@ -401,14 +432,7 @@ $report .= "seqStore *info.txt* changed; errorLog is the same.\n"   if (!$d01 &&
 $report .= "seqStore *errorLog* changed; info.txt is the same.\n"   if ( $d01 && !$d02);
 
 if ($d02) {
-    my $log;
-
-    $log  = "asm.seqStore/info.txt:\n";
-    $log .= "```\n";
-    $log .= readFile("asm.seqStore/info.txt.diffs", 50, 8192);
-    $log .= "```\n";
-
-    push @logs, $log;
+    push @logs, readFile("asm.seqStore/info.txt.diffs", 50, 8192);
 }
 
 ########################################
@@ -521,58 +545,23 @@ my $d28 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/
 $report .= "*Quast* has differences.\n"   if ($d21 || $d23 || $d24 || $d25 || $d26 || $d27 || $d28);
 
 if ($d21) {
-    my $log;
-
-    $log .= "quast/report.txt.filtered:\n";
-    $log .= "```\n";
-    $log .= readFile("quast/report.txt.filtered.diffs", 60, 8192);
-    $log .= "```\n";
-
-    push @logs, $log;
+    push @logs, readFile("quast/report.txt.filtered.diffs", 60, 8192);
 }
 
 #if ($d26) {
-#    my $log;
-#
-#    $log .= "quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info:\n";
-#    $log .= "```\n";
-#    $log .= readFile("quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info.diffs", 60, 8192);
-#    $log .= "```\n";
-#
-#    push @logs, $log;
+#    push @logs, readFile("quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info.diffs", 60, 8192);
 #}
 
 #if ($d27) {
-#    my $log;
-#
-#    $log .= "quast/contigs_reports/contigs_report_asm-contigs.unaligned.info:\n";
-#    $log .= "```\n";
-#    $log .= readFile("quast/contigs_reports/contigs_report_asm-contigs.unaligned.info.diffs", 60, 8192);
-#    $log .= "```\n";
-#
-#    push @logs, $log;
+#    push @logs, readFile("quast/contigs_reports/contigs_report_asm-contigs.unaligned.info.diffs", 60, 8192);
 #}
 
 if ($d28) {
-    my $log;
-
-    $log .= "quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered:\n";
-    $log .= "```\n";
-    $log .= readFile("quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered.diffs", 60, 8192);
-    $log .= "```\n";
-
-    push @logs, $log;
+    push @logs, readFile("quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered.diffs", 60, 8192);
 }
 
 else {
-    my $log;
-
-    $log .= "quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered:\n";
-    $log .= "```\n";
-    $log .= readFile("quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered", 60, 8192);
-    $log .= "```\n";
-
-    push @logs, $log;
+    push @logs, readFile("quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered", 60, 8192);
 }
 
 
@@ -601,23 +590,28 @@ if ($faif ne "") {
 #  Report the results.
 
 if ($difc == 0) {
-    #print ":canu_success: *$recipe* passed in _${regression}_.\n";
 
-    #postHeading(":canu_success: *$recipe* passed in _${regression}_.");
+    if ($postSlack == 1) {
+        postHeading(":canu_success: *$recipe* has no differences between _${regression}_ and reference _${refregr}_.");
+    } else {
+        print "SUCCESS $recipe has no differences between ${regression} and reference _${refregr}_.\n";
+    }
 }
 
 else {
-    print ":canu_fail: *$recipe* has differences in _${regression}_.\n";
-    print $report;
-    foreach my $log (@logs) {
-        print "\n----------------------------------------\n";
-        print $log;
-    }
-
-    postHeading(":canu_fail: *$recipe* has differences in _${regression}_.");
-    postFormattedText(undef, $report);
-    foreach my $log (@logs) {
-        postFormattedText(undef, $log);
+    if ($postSlack == 1) {
+        postHeading(":canu_fail: *$recipe* has differences between _${regression}_ and reference _${refregr}_.");
+        postFormattedText(undef, $report);
+        foreach my $log (@logs) {
+            postFormattedText(undef, $log);
+        }
+    } else {
+        print "FAIL $recipe has differences between ${regression} and reference _${refregr}_.\n";
+        print $report;
+        foreach my $log (@logs) {
+            print "\n----------------------------------------\n";
+            print $log;
+        }
     }
 }
 
