@@ -33,6 +33,7 @@ fi
   genomeSize=139600000 \
   corPartitions=24 \
   corPartitionMin=5000 \
+  cnsMemory=32g \
   onSuccess=../../recipes/$recp/success.sh \
   onFailure=../../recipes/$recp/failure.sh \
   -pacbio ../recipes/$recp/reads/*xz
