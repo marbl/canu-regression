@@ -27,6 +27,7 @@ fi
 
 if [ ! -e quast/report.txt ] ; then
   $quast \
+    --large \
     --threads 8 \
     --min-identity 90. \
     --skip-unaligned-mis-contigs \
