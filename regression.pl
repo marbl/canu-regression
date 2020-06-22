@@ -145,7 +145,6 @@ checkSlack();
 #
 
 if ($doFetch) {
-
     if (! -d "$gitrepo") {
         print STDERR "FETCHING REPO\n";
 
@@ -178,20 +177,25 @@ if ($doFetch) {
         unlink "$gitrepo/merge.err";
         unlink "$gitrepo/submo.err";
     }
-
-    postHeading("*Check out* branch '$branch'.");
-
-    system("cd $gitrepo && git checkout $branch >> check.err 2>&1");
-    system("cd $gitrepo && git merge --stat -q >> merge.err 2>&1");
-
-    postFile(undef, "$gitrepo/check.err");
-    postFile(undef, "$gitrepo/merge.err");
-
-    unlink "$gitrepo/check.err";
-    unlink "$gitrepo/merge.err";
-
-    system("cd $gitrepo && git log --date=format-local:%Y-%m-%d-%H%M --pretty=tformat:'%ad %H' | sort -nr > date-to-hash");
 }
+
+#
+#  Switch to the branch we want to use, then update the list of revisions in
+#  it.
+#
+
+postHeading("*Check out* branch '$branch'.");
+
+system("cd $gitrepo && git checkout $branch > check.err 2>&1");
+system("cd $gitrepo && git merge --stat -q > merge.err 2>&1");
+
+postFile(undef, "$gitrepo/check.err");
+postFile(undef, "$gitrepo/merge.err");
+
+unlink "$gitrepo/check.err";
+unlink "$gitrepo/merge.err";
+
+system("cd $gitrepo && git log --date=format-local:%Y-%m-%d-%H%M --pretty=tformat:'%ad %H' | sort -nr > date-to-hash");
 
 #
 #  If given a date, scan the repo to find the closest hash.
