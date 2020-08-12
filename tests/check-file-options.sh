@@ -98,6 +98,7 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xA" ] ; then
+    echo Starting A part 1.
     canu useGrid=false -p asm -d A001 genomeSize=50k              -nanopore                        ${fileA} > A001.err 2>&1 &
     canu useGrid=false -p asm -d A002 genomeSize=50k              -nanopore           -raw         ${fileA} > A002.err 2>&1 &
     canu useGrid=false -p asm -d A004 genomeSize=50k              -nanopore           -full-length ${fileA} > A004.err 2>&1 &
@@ -108,6 +109,7 @@ if [ x$mod = xall -o x$mod = "xA" ] ; then
     canu useGrid=false -p asm -d A022 genomeSize=50k -raw         -nanopore           -raw         ${fileA} > A022.err 2>&1 &
     canu useGrid=false -p asm -d A024 genomeSize=50k -raw         -nanopore           -full-length ${fileA} > A024.err 2>&1 &
     wait
+    echo Starting A part 2.
     canu useGrid=false -p asm -d A026 genomeSize=50k -raw         -nanopore-raw                    ${fileA} > A026.err 2>&1 &
     canu useGrid=false -p asm -d A027 genomeSize=50k -raw         -nanopore-raw       -raw         ${fileA} > A027.err 2>&1 &
     canu useGrid=false -p asm -d A029 genomeSize=50k -raw         -nanopore-raw       -full-length ${fileA} > A029.err 2>&1 &
@@ -125,6 +127,7 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xB" ] ; then
+    echo Starting B part 1.
     canu useGrid=false -p asm -d B003 genomeSize=50k              -nanopore           -corrected   ${fileB} > B003.err 2>&1 &
     canu useGrid=false -p asm -d B011 genomeSize=50k              -nanopore-corrected              ${fileB} > B011.err 2>&1 &
     canu useGrid=false -p asm -d B013 genomeSize=50k              -nanopore-corrected -corrected   ${fileB} > B013.err 2>&1 &
@@ -133,6 +136,7 @@ if [ x$mod = xall -o x$mod = "xB" ] ; then
     canu useGrid=false -p asm -d B043 genomeSize=50k -corrected   -nanopore           -corrected   ${fileB} > B043.err 2>&1 &
     canu useGrid=false -p asm -d B044 genomeSize=50k -corrected   -nanopore           -full-length ${fileB} > B044.err 2>&1 &
     wait
+    echo Starting B part 2.
     canu useGrid=false -p asm -d B051 genomeSize=50k -corrected   -nanopore-corrected              ${fileB} > B051.err 2>&1 &
     canu useGrid=false -p asm -d B053 genomeSize=50k -corrected   -nanopore-corrected -corrected   ${fileB} > B053.err 2>&1 &
     canu useGrid=false -p asm -d B054 genomeSize=50k -corrected   -nanopore-corrected -full-length ${fileB} > B054.err 2>&1 &
@@ -148,12 +152,14 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xC" ] ; then
+    echo Starting C part 1.
     canu useGrid=false -p asm -d C005 genomeSize=50k              -nanopore           -trimmed     ${fileC} > C005.err 2>&1 &
     canu useGrid=false -p asm -d C015 genomeSize=50k              -nanopore-corrected -trimmed     ${fileC} > C015.err 2>&1 &
     canu useGrid=false -p asm -d C045 genomeSize=50k -corrected   -nanopore           -trimmed     ${fileC} > C045.err 2>&1 &
     canu useGrid=false -p asm -d C055 genomeSize=50k -corrected   -nanopore-corrected -trimmed     ${fileC} > C055.err 2>&1 &
     canu useGrid=false -p asm -d C081 genomeSize=50k -trimmed     -nanopore                        ${fileC} > C081.err 2>&1 &
     wait
+    echo Starting C part 2.
     canu useGrid=false -p asm -d C083 genomeSize=50k -trimmed     -nanopore           -corrected   ${fileC} > C083.err 2>&1 &
     canu useGrid=false -p asm -d C085 genomeSize=50k -trimmed     -nanopore           -trimmed     ${fileC} > C085.err 2>&1 &
     canu useGrid=false -p asm -d C091 genomeSize=50k -trimmed     -nanopore-corrected              ${fileC} > C091.err 2>&1 &
@@ -167,6 +173,7 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xD" ] ; then
+    echo Starting D part 1.
     canu useGrid=false -p asm -d D008 genomeSize=50k              -nanopore-raw       -corrected   ${fileB} > D008.err 2>&1 &
     canu useGrid=false -p asm -d D010 genomeSize=50k              -nanopore-raw       -trimmed     ${fileD} > D010.err 2>&1 &
     canu useGrid=false -p asm -d D012 genomeSize=50k              -nanopore-corrected -raw         ${fileD} > D012.err 2>&1 &
@@ -184,6 +191,7 @@ if [ x$mod = xall -o x$mod = "xD" ] ; then
     canu useGrid=false -p asm -d D047 genomeSize=50k -corrected   -nanopore-raw       -raw         ${fileD} > D047.err 2>&1 &
     canu useGrid=false -p asm -d D048 genomeSize=50k -corrected   -nanopore-raw       -corrected   ${fileD} > D048.err 2>&1 &
     wait
+    echo Starting D part 2.
     canu useGrid=false -p asm -d D049 genomeSize=50k -corrected   -nanopore-raw       -full-length ${fileD} > D049.err 2>&1 &
     canu useGrid=false -p asm -d D050 genomeSize=50k -corrected   -nanopore-raw       -trimmed     ${fileD} > D050.err 2>&1 &
     canu useGrid=false -p asm -d D052 genomeSize=50k -corrected   -nanopore-corrected -raw         ${fileD} > D052.err 2>&1 &
@@ -209,6 +217,7 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xE" ] ; then
+    echo Starting E.
     canu useGrid=false -p asm -d E016 genomeSize=50k              -pacbio-hifi                     ${fileE} > E016.err 2>&1 &
     canu useGrid=false -p asm -d E017 genomeSize=50k              -pacbio-hifi        -raw         ${fileE} > E017.err 2>&1 &
     canu useGrid=false -p asm -d E036 genomeSize=50k -raw         -pacbio-hifi                     ${fileE} > E036.err 2>&1 &
@@ -221,6 +230,7 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xF" ] ; then
+    echo Starting F part 1.
     canu useGrid=false -p asm -d F018 genomeSize=50k              -pacbio-hifi        -corrected   ${fileF} > F018.err 2>&1 &
     canu useGrid=false -p asm -d F038 genomeSize=50k -raw         -pacbio-hifi        -corrected   ${fileF} > F038.err 2>&1 &
     canu useGrid=false -p asm -d F020 genomeSize=50k              -pacbio-hifi        -trimmed     ${fileF} > F020.err 2>&1 &
@@ -229,6 +239,7 @@ if [ x$mod = xall -o x$mod = "xF" ] ; then
     canu useGrid=false -p asm -d F057 genomeSize=50k -corrected   -pacbio-hifi        -raw         ${fileF} > F057.err 2>&1 &
     canu useGrid=false -p asm -d F058 genomeSize=50k -corrected   -pacbio-hifi        -corrected   ${fileF} > F058.err 2>&1 &
     wait
+    echo Starting F part 2.
     canu useGrid=false -p asm -d F059 genomeSize=50k -corrected   -pacbio-hifi        -full-length ${fileF} > F059.err 2>&1 &
     canu useGrid=false -p asm -d F060 genomeSize=50k -corrected   -pacbio-hifi        -trimmed     ${fileF} > F060.err 2>&1 &
     canu useGrid=false -p asm -d F078 genomeSize=50k -full-length -pacbio-hifi        -corrected   ${fileF} > F078.err 2>&1 &
@@ -244,6 +255,7 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xG" ] ; then
+    echo Starting G.
     canu useGrid=false -p asm -d G039 genomeSize=50k -raw         -pacbio-hifi        -full-length ${fileG} > G039.err 2>&1 &
     canu useGrid=false -p asm -d G019 genomeSize=50k              -pacbio-hifi        -full-length ${fileG} > G019.err 2>&1 &
     canu useGrid=false -p asm -d G079 genomeSize=50k -full-length -pacbio-hifi        -full-length ${fileG} > G079.err 2>&1 &
@@ -257,6 +269,7 @@ fi
 #
 
 if [ x$mod = xall -o x$mod = "xH" ] ; then
+    echo Starting H.
     canu useGrid=false -p asm -d H080 genomeSize=50k -full-length -pacbio-hifi        -trimmed     ${fileF} > H080.err 2>&1 &
     canu useGrid=false -p asm -d H099 genomeSize=50k -trimmed     -pacbio-hifi        -full-length ${fileH} > H099.err 2>&1 &
     wait
