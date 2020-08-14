@@ -42,6 +42,8 @@ my $doFetch  = 1;
 my $date     = undef;
 my $branch   = "master";
 my $hash     = undef;
+my $canu     = "";
+
 my $regr     = undef;      #  Eventually set to "$date-$branch-$hash"
 my $tests    = undef;
 my @recipes;
@@ -92,6 +94,12 @@ while (scalar(@ARGV) > 0) {
         $date = shift @ARGV;
     }
 
+    elsif ($arg eq "-canu") {
+        $canu = shift @ARGV;
+        $hash = undef;
+        $date = $now
+    }
+
     elsif ($arg eq "-quick")             {  $tests = "zzzQUICK";   }
     elsif ($arg eq "-daily")             {  $tests = "zzzDAILY";   }
     elsif ($arg eq "-weekly")            {  $tests = "zzzWEEKLY";  }
@@ -103,8 +111,8 @@ while (scalar(@ARGV) > 0) {
     }
 }
 
-$doHelp = 1   if (!defined($date) && !defined($hash));
-$doHelp = 1   if ( defined($date) &&  defined($hash));
+$doHelp = 1   if (!defined($date) && !defined($hash) && !defined($canu));
+$doHelp = 1   if ( defined($date) &&  defined($hash) && !defined($canu));
 
 $doHelp = 1   if ((defined($tests)) && (! -e "recipes/$tests"));
 
@@ -122,6 +130,8 @@ if ($doHelp) {
     print "  -latest      Use the latest code.\n";
     print "  -hash H      Use a specific historical hash.\n";
     print "  -date D      Use a specific historical date.  Format YYYY-MM-DD-HHMM.\n";
+    print "\n";
+    print "  -canu P      Use a pre-compiled version found in path P.\n";
     print "\n";
     print "TEST SELECTION (exactly one must be supplied)\n";
     print "  -quick       Lambda, both PacBio and Nanopore.\n";
@@ -144,7 +154,7 @@ checkSlack();
 #  Fetch the latest repo.
 #
 
-if ($doFetch) {
+if (($doFetch) && ($canu eq "")) {
     if (! -d "$gitrepo") {
         print STDERR "FETCHING REPO\n";
 
@@ -166,7 +176,7 @@ if ($doFetch) {
         postHeading("*Updating Canu* in '$gitrepo'.");
 
         system("cd $gitrepo && git fetch > fetch.err 2>&1");
-        system("cd $gitrepo && git merge --stat -q > merge.err 2>&1");
+        system("cd $gitrepo && git merge --stat > merge.err 2>&1");
         system("cd $gitrepo && git submodule update --remote --merge > submo.err 2>&1");
 
         postFile(undef, "$gitrepo/fetch.err");
@@ -184,16 +194,24 @@ if ($doFetch) {
 #  it.
 #
 
-postHeading("*Check out* branch '$branch'.");
+if ($canu eq "") {
+    postHeading("*Check out* branch '$branch'.");
 
-system("cd $gitrepo && git checkout $branch > check.err 2>&1");
-system("cd $gitrepo && git merge --stat -q > merge.err 2>&1");
+    system("cd $gitrepo && git checkout $branch > check.err 2>&1");
+    system("cd $gitrepo && git merge --stat > merge.err 2>&1");
 
-postFile(undef, "$gitrepo/check.err");
-postFile(undef, "$gitrepo/merge.err");
+    postFile(undef, "$gitrepo/check.err");
+    postFile(undef, "$gitrepo/merge.err");
 
-unlink "$gitrepo/check.err";
-unlink "$gitrepo/merge.err";
+    unlink "$gitrepo/check.err";
+    unlink "$gitrepo/merge.err";
+}
+else {
+    postHeading("*Using* canu in '$canu'.");
+
+    $gitrepo = $canu;   #  Needed to get date-to-hash and date and hash set below.
+    $date    = $now;
+}
 
 system("cd $gitrepo && git log --date=format-local:%Y-%m-%d-%H%M --pretty=tformat:'%ad %H' | sort -nr > date-to-hash");
 
@@ -267,13 +285,21 @@ if (defined($hash)) {
 #
 
 if (! -d "$wrkdir/$regr/canu") {
-    print STDERR "CHECKOUT $regr\n";
+    if ($canu eq "") {
+        print STDERR "CHECKOUT $regr\n";
 
-    #  Clone the repo and checkout the proper version.
+        #  Clone the repo and checkout the proper version.
 
-    system("mkdir -p $wrkdir/$regr/canu");
-    system("cd $wrkdir/$regr/canu && rsync -a $gitrepo/ .");
-    system("cd $wrkdir/$regr/canu && git checkout -b regression-$regr $hash > checkout.err 2>&1");
+        system("mkdir -p $wrkdir/$regr/canu");
+        system("cd $wrkdir/$regr/canu && rsync -a $gitrepo/ .");
+        system("cd $wrkdir/$regr/canu && git checkout -b regression-$regr $hash > checkout.err 2>&1");
+    }
+    else {
+        print STDERR "COPY from $canu to $regr\n";
+
+        system("mkdir -p $wrkdir/$regr/canu");
+        system("cd $wrkdir/$regr/canu && rsync -a $canu/ .");
+    }
 
     #  Save a log of changes.
 
