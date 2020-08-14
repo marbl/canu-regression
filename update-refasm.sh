@@ -115,9 +115,15 @@ fi
 
 #  But if directories on the command line, go into them first.
 for dd in $@ ; do
-  cd $dd
-  updateAssembly
-  cd ..
+  if [ -d $dd ] ; then
+    if [ -e $dd/asm.contigs.fasta ] ; then
+      cd $dd
+      updateAssembly
+      cd ..
+    else
+      echo "No contigs found in '$dd'."
+    fi
+  fi
 done
 
 echo "Done!"
