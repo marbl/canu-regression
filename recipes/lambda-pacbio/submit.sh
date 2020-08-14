@@ -2,6 +2,13 @@
 
 syst=`uname -s`
 arch=`uname -m | sed s/x86_64/amd64/`
+
+if [ -e canu/build/bin/canu ] ; then
+  inst="build"
+else
+  inst="$syst-$arch"
+fi
+
 #  To make this script a little bit less specific to each assembly,
 #  it needs the name of the assembly as the only argument.
 #
@@ -26,7 +33,7 @@ if [ ! -e "../recipes/$recp/failure.sh" ] ; then
 fi
 
 
-./canu/$syst-$arch/bin/canu executiveThreads=8 executiveMemory=16g \
+./canu/$inst/bin/canu executiveThreads=8 executiveMemory=16g \
   -p asm \
   -d $recp \
   genomeSize=50k \
