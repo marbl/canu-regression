@@ -38,6 +38,7 @@ my $dow           = `date +%w`;              chomp $dow;    #  Day of week, used
 #
 
 my $doHelp   = 0;
+my $errs     = "";
 my $doFetch  = 1;
 my $date     = undef;
 my $branch   = "master";
@@ -59,7 +60,8 @@ while (scalar(@ARGV) > 0) {
 
     $recp =~ s!recipes/!!;
 
-    if    ($arg eq "-help") {
+    if   (($arg eq "-h") ||
+          ($arg eq "-help")) {
         $doHelp = 1;
     }
 
@@ -107,18 +109,18 @@ while (scalar(@ARGV) > 0) {
     elsif (-e "recipes/$recp/submit.sh") {  push @recipes, $recp;  }
 
     else {
-        die "unknown option '$arg'.\n";
+        $errs .= "ERROR: Unknown option '$arg'.\n";
     }
 }
 
-$doHelp = 1   if (!defined($date) && !defined($hash) && !defined($canu));
-$doHelp = 1   if ( defined($date) &&  defined($hash) && !defined($canu));
-
-$doHelp = 1   if ((defined($tests)) && (! -e "recipes/$tests"));
+$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if (!defined($date) && !defined($hash) && ($canu eq ""));
+$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if ( defined($date) &&  defined($hash) && ($canu eq ""));
+$errs .= "ERROR: Test file 'recipe/$tests' doesn't exist.\n"                          if ((defined($tests)) && (! -e "recipes/$tests"));
+$errs .= "ERROR: -canu path must be to root of git clone.\n"                          if (($canu ne "") && (! -e "$canu/.git"));
 
 checkSlack();
 
-if ($doHelp) {
+if (($doHelp) || ($errs ne "")) {
     print "usage: $0 [options] [recipe-class | recipe-list]\n";
     print "  -(no-)fetch  Fetch (or not) updates to the repository.\n";
     print "\n";
@@ -138,13 +140,11 @@ if ($doHelp) {
     print "  -daily       Several drosophila, PacBio, Nanopore and HiFi.\n";
     print "  -weekly      (nothing yet)\n";
     print "\n";
-    print "\n";
     print "Logging ends up in Slack.  Progress is reported to stdout.\n";
     print "\n";
-    print "ERROR:  Exactly one of -latest, -date or -hash must be supplied.\n"   if (!defined($date) && !defined($hash));
-    print "ERROR:  Exactly one of -latest, -date or -hash must be supplied.\n"   if ( defined($date) &&  defined($hash));
-    print "ERROR:  Test file 'recipe/$tests' doesn't exist.\n"                   if ((defined($tests)) && (! -e "recipes/$tests"));
-    print "\n";
+
+    print "$errs\n"   if ($errs ne "");
+
     exit(0);
 }
 
