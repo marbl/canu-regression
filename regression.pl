@@ -275,6 +275,10 @@ if (defined($hash)) {
     }
     close(F);
 
+    if (!defined($date)) {
+        die "Failed to find date for hash $hash.  Wrong branch?\n";
+    }
+
     $regr = "$date-$branch-" . substr($hash, 0, 12);
 
     print STDERR "USING $regr\n";
