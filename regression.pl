@@ -152,59 +152,64 @@ checkSlack();
 
 #
 #  Fetch the latest repo.
+#    clone --recurse-submodules will get both the main project and all submodules.
+#    fetch --all does the same.
 #
 
 if (($doFetch) && ($canu eq "")) {
     if (! -d "$gitrepo") {
-        print STDERR "FETCHING REPO\n";
-
-        postHeading("*Cloning Canu* into '$gitrepo'.");
+        postHeading("*Clone Canu* into '$gitrepo'.");
 
         system("mkdir -p $gitrepo");
-        system("git clone http://github.com/marbl/canu.git $gitrepo > clone.err 2>&1");
-        system("cd $gitrepo && git submodule init > submo.err 2>&1");
+        system("git clone --recurse-submodules http://github.com/marbl/canu.git $gitrepo > clone.err 2>&1");
 
-        postFile(undef,          "clone.err");
-        postFile(undef, "$gitrepo/submo.err");
+        #  Clean the log a little bit.
 
+        my @lines;
+
+        open(F, "< clone.err");
+        while (<F>) {
+            push @lines, $_   if ($_ !~ m/Updating\sfiles/);
+        }
+        close(F);
+
+        open(F, "> clone.err");
+        foreach (@lines) {
+            print F $_;
+        }
+        close(F);
+
+        postFile(undef, "clone.err");
         unlink          "clone.err";
-        unlink "$gitrepo/submo.err";
     }
     else {
-        print STDERR "UPDATING REPO\n";
+        postHeading("*Update Canu* in '$gitrepo'.");
 
-        postHeading("*Updating Canu* in '$gitrepo'.");
-
-        system("cd $gitrepo && git fetch > fetch.err 2>&1");
-        system("cd $gitrepo && git merge --stat > merge.err 2>&1");
-        system("cd $gitrepo && git submodule update --remote --merge > submo.err 2>&1");
+        system("cd $gitrepo && git fetch --all > fetch.err 2>&1");
 
         postFile(undef, "$gitrepo/fetch.err");
-        postFile(undef, "$gitrepo/merge.err");
-        postFile(undef, "$gitrepo/submo.err");
-
-        unlink "$gitrepo/fetch.err";
-        unlink "$gitrepo/merge.err";
-        unlink "$gitrepo/submo.err";
+        unlink          "$gitrepo/fetch.err";
     }
 }
 
 #
-#  Switch to the branch we want to use, then update the list of revisions in
-#  it.
+#  Switch to the branch we want to use, then update the list of revisions.
 #
 
 if ($canu eq "") {
-    postHeading("*Check out* branch '$branch'.");
+    postHeading("*Switch to branch* '$branch'.");
 
-    system("cd $gitrepo && git checkout $branch > check.err 2>&1");
-    system("cd $gitrepo && git merge --stat > merge.err 2>&1");
+    system("cd $gitrepo && git checkout $branch              > checkout.err 2>&1");
+    system("cd $gitrepo && git merge --no-progress --no-stat > merge.err 2>&1");
+    system("cd $gitrepo && git submodule update              > update.err 2>&1");
 
-    postFile(undef, "$gitrepo/check.err");
-    postFile(undef, "$gitrepo/merge.err");
+    postFile("Checkout",          "$gitrepo/checkout.err");
+    postFile("Merge changes",     "$gitrepo/merge.err");
+    postFile("Update submodules", "$gitrepo/update.err");
 
-    unlink "$gitrepo/check.err";
+    unlink "$gitrepo/checkout.err";
     unlink "$gitrepo/merge.err";
+    unlink "$gitrepo/update.err";
 }
 else {
     postHeading("*Using* canu in '$canu'.");
@@ -280,36 +285,31 @@ if (defined($hash)) {
     }
 
     $regr = "$date-$branch-" . substr($hash, 0, 12);
-
-    print STDERR "USING $regr\n";
 }
 
 #
-#  Check out a version.
+#  Check out a specific version.  We're already on the correct branch.
+#   - copy either the local repo or the one the user supplied.
 #
 
 if (! -d "$wrkdir/$regr/canu") {
     if ($canu eq "") {
-        print STDERR "CHECKOUT $regr\n";
-
-        #  Clone the repo and checkout the proper version.
+        postHeading("*Checkout* '$hash'.");
 
         system("mkdir -p $wrkdir/$regr/canu");
         system("cd $wrkdir/$regr/canu && rsync -a $gitrepo/ .");
-        system("cd $wrkdir/$regr/canu && git checkout -b regression-$regr $hash > checkout.err 2>&1");
+        system("cd $wrkdir/$regr/canu && git checkout $hash   > checkout.err 2>&1");
+        system("cd $wrkdir/$regr/canu && git submodule update > update.err 2>&1");
+
+        postFile("Checkout",         "$wrkdir/$regr/canu/checkout.err");
+        postFile("Submodule update", "$wrkdir/$regr/canu/update.err");
     }
     else {
-        print STDERR "COPY from $canu to $regr\n";
+        postHeading("*Using* '$canu'.");
 
         system("mkdir -p $wrkdir/$regr/canu");
         system("cd $wrkdir/$regr/canu && rsync -a $canu/ .");
     }
-
-    #  Save a log of changes.
-
-    #if ($ldate ne "") {
-    #    system("cd $wrkdir/$regr/canu && git log --after=\"$ldate\" --until=\"$tdate\" > ../canu.updates");
-    #}
 }
 
 #
@@ -317,9 +317,7 @@ if (! -d "$wrkdir/$regr/canu") {
 #
 
 if (! -e "$wrkdir/$regr/canu/src/make.err") {
-    print STDERR "BUILD $regr\n";
-
-    postHeading("*Building* branch '$branch'.");
+    postHeading("*Build*.");
 
     system("cd $wrkdir/$regr/canu/src && gmake -j 8 > make.out 2> make.err");   #  Once, with threads.
     system("cd $wrkdir/$regr/canu/src && gmake      > make.out 2> make.err");   #  Again, without, to get errors.
