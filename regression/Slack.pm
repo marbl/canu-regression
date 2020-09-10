@@ -80,6 +80,8 @@ sub postHeading ($) {
 
     push @{ $json->{'blocks'} }, $text;
 
+    print STDERR "$mesg\n";
+
     postToSlack($json);
 }
 
