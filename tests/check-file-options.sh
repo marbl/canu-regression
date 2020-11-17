@@ -16,6 +16,14 @@
 
 mod=$1
 
+if [ x$mod = x ] ; then
+    echo "Usage:  check-file-options.sh [A | B | C | D] -- check Nanopore assemblies"
+    echo "        check-file-options.sh [E | F | G | H] -- check HiFi assemblies"
+    echo "        check-file-options.sh all"
+    echo "        check-file-options.sh check"
+    exit 0
+fi
+
 raw="/data/reads/lambda/lambda.campen.nanopore.fasta.xz"
 cor="/data/reads/lambda/lambda.campen.nanopore.corrected.fasta.gz"
 tri="/data/reads/lambda/lambda.campen.nanopore.trimmed.fasta.gz"
