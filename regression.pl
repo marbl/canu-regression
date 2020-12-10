@@ -62,7 +62,7 @@ while (scalar(@ARGV) > 0) {
 
     if   (($arg eq "-h") ||
           ($arg eq "-help")) {
-        $doHelp = 1;
+        $doHelp  = 1;
     }
 
     elsif ($arg eq "-fetch") {
@@ -74,32 +74,33 @@ while (scalar(@ARGV) > 0) {
     }
 
     elsif ($arg eq "-branch") {
-        $branch = shift @ARGV;
+        $branch  = shift @ARGV;
     }
 
     elsif ($arg eq "-master") {
-        $branch = "master";
+        $branch  = "master";
     }
 
     elsif ($arg eq "-latest") {
-        $hash = undef;
-        $date = $now;
+        $hash    = undef;
+        $date    = $now;
     }
 
     elsif ($arg eq "-hash") {
-        $hash = shift @ARGV;
-        $date = undef;
+        $hash    = shift @ARGV;
+        $date    = undef;
     }
 
     elsif ($arg eq "-date") {
-        $hash = undef;
-        $date = shift @ARGV;
+        $hash    = undef;
+        $date    = shift @ARGV;
     }
 
     elsif ($arg eq "-canu") {
-        $canu = shift @ARGV;
-        $hash = undef;
-        $date = $now
+        $doFetch = 0;
+        $canu    = shift @ARGV;
+        $hash    = undef;
+        $date    = $now
     }
 
     elsif ($arg eq "-quick")             {  $tests = "zzzQUICK";   }
@@ -151,78 +152,93 @@ if (($doHelp) || ($errs ne "")) {
 checkSlack();
 
 #
-#  Fetch the latest repo.
-#    clone --recurse-submodules will get both the main project and all submodules.
-#    fetch --all does the same.
+#  CLONE: If there's no repo (and we're not running from a local copy) clone
+#  the repo from github.
 #
 
-if (($doFetch) && ($canu eq "")) {
-    if (! -d "$gitrepo") {
-        postHeading("*Clone Canu* into '$gitrepo'.");
+print "$doFetch\n";
+print "$canu\n";
+print "$gitrepo\n";
 
-        system("mkdir -p $gitrepo");
-        system("git clone --recurse-submodules http://github.com/marbl/canu.git $gitrepo > clone.err 2>&1");
+if (($doFetch) && ($canu eq "") && (! -d $gitrepo)) {
+    my $lines;
 
-        #  Clean the log a little bit.
+    system("mkdir -p $gitrepo");
+    system("git clone --recurse-submodules http://github.com/marbl/canu.git $gitrepo > clone.err 2>&1");
 
-        my @lines;
+    open(F, "< clone.err");
+    while (<F>) {
+        next   if ($_ =~ m/Updating\sfiles/);
+        $lines .= $_;
+    }
+    close(F);
 
-        open(F, "< clone.err");
+    unlink "clone.err";
+
+    postFormattedText("*Clone Canu* into '$gitrepo'.", $lines);
+}
+
+#
+#  SWITCH BRANCH: Switch the repo to the requested branch if we're not there
+#  already.
+#
+
+if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
+    my $onBranch;
+
+    open(F, "cd $gitrepo && git status |");
+    while (<F>) {
+        $onBranch = $1   if (m/^On\s+branch\s+(.*)$/);
+    }
+    close(F);
+    
+    if ($onBranch ne $branch) {
+        my $lines;
+
+        system("cd $gitrepo && git checkout $branch > checkout.err 2>&1");
+
+        open(F, "< checkout.err");
         while (<F>) {
-            push @lines, $_   if ($_ !~ m/Updating\sfiles/);
+            next   if ($_ =~ m/^Switched\sto/);
+            next   if ($_ =~ m/^Your\sbranch\sis\sup\sto\sdate\swith/);
+            $lines .= $_;
         }
         close(F);
 
-        open(F, "> clone.err");
-        foreach (@lines) {
-            print F $_;
-        }
-        close(F);
-
-        postFile(undef, "clone.err");
-        unlink          "clone.err";
-    }
-    else {
-        postHeading("*Update Canu* in '$gitrepo'.");
-
-        system("cd $gitrepo && git fetch --all > fetch.err 2>&1");
-
-        postFile(undef, "$gitrepo/fetch.err");
-        unlink          "$gitrepo/fetch.err";
+        unlink "$gitrepo/checkout.err";
+ 
+        postFormattedText("*Switch from branch '$onBranch' to branch '$branch'.*", $lines);
     }
 }
 
 #
-#  Switch to the branch we want to use, then update the list of revisions.
+#  FETCH UPDATES: Fetch and apply any updates.  This could be done _before_
+#  switching to the correct branch, but then we'd need to do basically the
+#  same thing again to update the branch we just switched to.
+#
+#  Posting of the logs is disabled because they're a bit verbose.
 #
 
-if ($canu eq "") {
-    postHeading("*Switch to branch* '$branch'.");
+if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
+    postHeading("*Update Canu* branch $branch in '$gitrepo'.");
 
-    system("cd $gitrepo && git checkout $branch              > checkout.err 2>&1");
-    system("cd $gitrepo && git merge --no-progress --no-stat > merge.err 2>&1");
-    system("cd $gitrepo && git submodule update              > update.err 2>&1");
+    system("sh ./update-repo.sh $gitrepo/src/seqrequester > update-seqrequester.out 2>&1");
+    system("sh ./update-repo.sh $gitrepo/src/utility      > update-utility.out 2>&1");
+    system("sh ./update-repo.sh $gitrepo/src/meryl        > update-meryl.out 2>&1");
+    system("sh ./update-repo.sh $gitrepo/                 > update-canu.out 2>&1");
 
-    postFile("Checkout",          "$gitrepo/checkout.err");
-    postFile("Merge changes",     "$gitrepo/merge.err");
-    postFile("Update submodules", "$gitrepo/update.err");
-
-    unlink "$gitrepo/checkout.err";
-    unlink "$gitrepo/merge.err";
-    unlink "$gitrepo/update.err";
+    #postFile("Seqrequester changes", "update-seqrequester.out");
+    #postFile("Utility changes",      "update-utility.out");
+    #postFile("Meryl changes",        "update-meryl.out");
+    #postFile("Canu changes",         "update-canu.out");
 }
-else {
-    postHeading("*Using* canu in '$canu'.");
 
-    $gitrepo = $canu;   #  Needed to get date-to-hash and date and hash set below.
-    $date    = $now;
-}
+#
+#  PICK VERSION: Update the list of revisions, then map the date to a hash,
+#  then find the date for that hash.
+#
 
 system("cd $gitrepo && git log --date=format-local:%Y-%m-%d-%H%M --pretty=tformat:'%ad %H' | sort -nr > date-to-hash");
-
-#
-#  If given a date, scan the repo to find the closest hash.
-#
 
 if (defined($date)) {
     my $bestdate;
@@ -254,10 +270,6 @@ if (defined($date)) {
     $hash = $besthash;
 }
 
-#
-#  Figure out the date for this hash.
-#
-
 if (!defined($hash)) {
     die "Failed to find a hash?\n";
 }
@@ -288,21 +300,24 @@ if (defined($hash)) {
 }
 
 #
-#  Check out a specific version.  We're already on the correct branch.
-#   - copy either the local repo or the one the user supplied.
+#  CHECK OUT: Check out a specific version.  We're already on the correct
+#  branch, so just copy the repo and checkout/update the code.
+#
+#  If a specific canu tree is used, just copy it over.
+#
+#  The double checkout is to just get a clean log.  The first checkout
+#  'falsely' reports that submodules are out-of-date.
 #
 
 if (! -d "$wrkdir/$regr/canu") {
     if ($canu eq "") {
-        postHeading("*Checkout* '$hash'.");
-
         system("mkdir -p $wrkdir/$regr/canu");
         system("cd $wrkdir/$regr/canu && rsync -a $gitrepo/ .");
-        system("cd $wrkdir/$regr/canu && git checkout $hash   > checkout.err 2>&1");
-        system("cd $wrkdir/$regr/canu && git submodule update > update.err 2>&1");
+        system("cd $wrkdir/$regr/canu && git checkout $hash    > initial-checkout.err 2>&1");
+        system("cd $wrkdir/$regr/canu && git submodule update  > checkout.err 2>&1");
+        system("cd $wrkdir/$regr/canu && git checkout $hash   >> checkout.err 2>&1");
 
-        postFile("Checkout",         "$wrkdir/$regr/canu/checkout.err");
-        postFile("Submodule update", "$wrkdir/$regr/canu/update.err");
+        postFile("*Checkout $date $hash*.", "$wrkdir/$regr/canu/checkout.err");
     }
     else {
         postHeading("*Using* '$canu'.");
@@ -313,7 +328,7 @@ if (! -d "$wrkdir/$regr/canu") {
 }
 
 #
-#  Compile it.
+#  COMPILE: Compile it.  Should we also remove any previous build?
 #
 
 if (! -e "$wrkdir/$regr/canu/src/make.err") {
@@ -376,13 +391,9 @@ if (! -e "$wrkdir/$regr/canu/src/make.err") {
 }
 
 #
-#  Find stuff to run.  We were either given a specific recipe to use, or a
-#  recipe file.
+#  FIND TEST CASES: Find stuff to run.  We were either given a specific
+#  recipe to use, or a recipe file.
 #
-
-#if (-e "recipes/$tests/submit.sh") {
-#    push @recipes, $tests;
-#}
 
 if (defined($tests) && -e "recipes/$tests") {
     open(F, "< recipes/$tests");
@@ -394,7 +405,7 @@ if (defined($tests) && -e "recipes/$tests") {
 }
 
 #
-#  And run them.
+#  EXECUTE: And run them.
 #
 
 if (scalar(@recipes) == 0) {
