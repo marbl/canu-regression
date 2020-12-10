@@ -24,7 +24,7 @@ saveFile() {
         nam=`basename $arg`
 
         if [ -e $dir/$nam ] ; then
-            echo "    $arg"
+            echo "  SAVE $arg"
             mkdir -p            ../../recipes/$asmn/refasm-$regr/$dir
             cp    -pr $dir/$nam ../../recipes/$asmn/refasm-$regr/$dir/$nam
         fi
@@ -37,6 +37,7 @@ updateAssembly() {
     regr=`dirname  $path`
     regr=`basename $regr`
 
+    echo ""
     echo "In directory     '$path'"
     echo "Found assembly   '$asmn'"
     echo "Found regression '$regr'"
@@ -104,8 +105,31 @@ updateAssembly() {
     saveFile  quast/contigs_reports/contigs_report_asm-contigs.stdout
     saveFile  quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered
 
-    echo "  assembly updated."
+    echo "Reference assembly updated."
 }
+
+
+#  If no directory given, assume we're in the correct directory.
+if [ $# -eq 0 -a ! -e "asm.seqStore" ] ; then
+  echo "usage: $0 [assembly-directories]"
+  echo "  If run in an assembly result directory, change the curated"
+  echo "  result for this test to this assembly."
+  echo ""
+  echo "  If 'assembly-directories' are supplied, change the curated"
+  echo "  result for those tests."
+  echo ""
+  echo "  If no assembly result is found (or if assembly-directory"
+  echo "  isn't even a directory), nothing is done."
+  echo ""
+  echo "  examples:"
+  echo "    % cd 2020-11-13-1306-master-76b1263fe840/ecoli-hifi-1"
+  echo "    % sh ../../update-refasm.sh"
+  echo ""
+  echo "    % sh ./update-refasm.sh 2020-11-13-1306-master-76b1263fe840/*"
+  echo ""
+  echo ""
+  exit
+fi
 
 
 #  If no directory given, assume we're in the correct directory.
@@ -119,13 +143,15 @@ for dd in $@ ; do
     if [ -e $dd/asm.contigs.fasta ] ; then
       cd $dd
       updateAssembly
-      cd ..
+      cd -
     else
+      echo ""
       echo "No contigs found in '$dd'."
     fi
   fi
 done
 
+echo ""
 echo "Done!"
 
 exit 0
