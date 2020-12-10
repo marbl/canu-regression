@@ -155,9 +155,9 @@ sub postFormattedText ($$) {
     my $json = {};
     my $jsonformatter = JSON::PP->new();
 
-    if (!defined($text)) {
-        $text = "(no message)\n"
-    }
+    #if (!defined($text)) {
+    #    $text = "(no message)\n"
+    #}
 
     postHeading($mesg);
 
