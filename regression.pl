@@ -38,6 +38,7 @@ my $dow           = `date +%w`;              chomp $dow;    #  Day of week, used
 #
 
 my $doHelp   = 0;
+my $doList   = 0;
 my $errs     = "";
 my $doFetch  = 1;
 my $date     = undef;
@@ -63,6 +64,10 @@ while (scalar(@ARGV) > 0) {
     if   (($arg eq "-h") ||
           ($arg eq "-help")) {
         $doHelp  = 1;
+    }
+
+    elsif ($arg eq "-list-refs") {
+        $doList = 1;
     }
 
     elsif ($arg eq "-fetch") {
@@ -114,16 +119,18 @@ while (scalar(@ARGV) > 0) {
     }
 }
 
-$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if (!defined($date) && !defined($hash) && ($canu eq ""));
-$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if ( defined($date) &&  defined($hash) && ($canu eq ""));
+$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if (!defined($date) && !defined($hash) && ($canu eq "") && ($doList == 0)) ;
+$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if ( defined($date) &&  defined($hash) && ($canu eq "") && ($doList == 0)) ;
 $errs .= "ERROR: Test file 'recipe/$tests' doesn't exist.\n"                          if ((defined($tests)) && (! -e "recipes/$tests"));
 $errs .= "ERROR: -canu path must be to root of git clone.\n"                          if (($canu ne "") && (! -e "$canu/.git"));
 
-checkSlack();
 
 if (($doHelp) || ($errs ne "")) {
     print "usage: $0 [options] [recipe-class | recipe-list]\n";
     print "  -(no-)fetch  Fetch (or not) updates to the repository.\n";
+    print "\n";
+    print "REPORTS\n";
+    print "  -list-refs   List the current reference assemblies.\n";
     print "\n";
     print "BRANCH SELECTION\n";
     print "  -branch B    Test branch 'B'.\n";
@@ -149,16 +156,76 @@ if (($doHelp) || ($errs ne "")) {
     exit(0);
 }
 
+
+if ($doList) {
+    my %refs;
+    my %asms;
+    my $mLen = 0;
+    my $nRef = 0;
+    my $wRef = 0;
+
+    open(F, "ls -l recipes/*/refasm |");
+    while (<F>) {
+        if (m!\srecipes/(\S*)/refasm\s->\s(\S+)$!) {
+            $refs{$1} = $2;
+        }
+    }
+    close(F);
+
+    open(F, "ls -l recipes/*/submit.sh |");
+    while (<F>) {
+        if (m!\srecipes/(\S*)/submit.sh$!) {
+            $asms{$1} = $1;
+
+            $mLen = ($mLen < length($1)) ? length($1) : $mLen;
+
+            $nRef++   if (!exists($refs{$1}));
+            $wRef++   if ( exists($refs{$1}));
+        }
+    }
+    close(F);
+
+    if ($nRef) {
+        print "\n";
+        print "Assemblies without references:\n";
+
+        foreach my $asm (sort keys %asms) {
+            if (exists($refs{$asm})) {
+                #printf "  %-*s -> %s\n", $mLen, $asm, $refs{$asm};
+            } else {
+                printf "  %-*s -> no reference assembly\n", $mLen, $asm
+            }
+        }
+    }
+
+    if ($wRef) {
+        print "\n";
+        print "Current reference assebmlies:\n";
+
+        foreach my $asm (sort keys %asms) {
+            if (exists($refs{$asm})) {
+                printf "  %-*s -> %s\n", $mLen, $asm, $refs{$asm};
+            } else {
+                #printf "  %-*s -> no reference assembly\n", $mLen, $asm
+            }
+        }
+    }
+
+    exit(0);
+}
+
+
+
+#
+#  Make sure we can write stuff to slack.  All the logs and results go there.
+#
+
 checkSlack();
 
 #
 #  CLONE: If there's no repo (and we're not running from a local copy) clone
 #  the repo from github.
 #
-
-print "$doFetch\n";
-print "$canu\n";
-print "$gitrepo\n";
 
 if (($doFetch) && ($canu eq "") && (! -d $gitrepo)) {
     my $lines;
