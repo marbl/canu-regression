@@ -37,14 +37,14 @@ my $dow           = `date +%w`;              chomp $dow;    #  Day of week, used
 #  Parse the command line.
 #
 
-my $doHelp   = 0;
-my $doList   = 0;
-my $errs     = "";
-my $doFetch  = 1;
-my $date     = undef;
-my $branch   = "master";
-my $hash     = undef;
-my $canu     = "";
+my $doHelp  = 0;
+my $doList  = "";
+my $errs    = "";
+my $doFetch = 1;
+my $date    = undef;
+my $branch  = "master";
+my $hash    = undef;
+my $canu    = "";
 
 my $regr     = undef;      #  Eventually set to "$date-$branch-$hash"
 my $tests    = undef;
@@ -66,9 +66,11 @@ while (scalar(@ARGV) > 0) {
         $doHelp  = 1;
     }
 
-    elsif ($arg eq "-list-refs") {
-        $doList = 1;
-    }
+    elsif ($arg eq "-list-refs")       { $doList = "refs"; }
+    elsif ($arg eq "-list-assemblies") { $doList = "asms"; }
+    elsif ($arg eq "-list-completed")  { $doList = "fini"; }
+    elsif ($arg eq "-list-missing")    { $doList = "miss"; }
+    elsif ($arg eq "-list-failed")     { $doList = "fail"; }
 
     elsif ($arg eq "-fetch") {
         $doFetch = 1;
@@ -119,8 +121,8 @@ while (scalar(@ARGV) > 0) {
     }
 }
 
-$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if (!defined($date) && !defined($hash) && ($canu eq "") && ($doList == 0)) ;
-$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if ( defined($date) &&  defined($hash) && ($canu eq "") && ($doList == 0)) ;
+$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if (!defined($date) && !defined($hash) && ($canu eq "") && ($doList eq "")) ;
+$errs .= "ERROR: Exactly one of -latest, -date, -hash or -canu must be supplied.\n"   if ( defined($date) &&  defined($hash) && ($canu eq "") && ($doList eq "")) ;
 $errs .= "ERROR: Test file 'recipe/$tests' doesn't exist.\n"                          if ((defined($tests)) && (! -e "recipes/$tests"));
 $errs .= "ERROR: -canu path must be to root of git clone.\n"                          if (($canu ne "") && (! -e "$canu/.git"));
 
@@ -130,7 +132,11 @@ if (($doHelp) || ($errs ne "")) {
     print "  -(no-)fetch  Fetch (or not) updates to the repository.\n";
     print "\n";
     print "REPORTS\n";
-    print "  -list-refs   List the current reference assemblies.\n";
+    print "  -list-refs        List the current reference assemblies.\n";
+    print "  -list-assemblies  List the assemblies and status of each (the union of the next three reports).\n";
+    print "  -list-completed   List the assemblies that have completed.\n";
+    print "  -list-missing     List the assemblies that have not been started in an existing regression set.\n";
+    print "  -list-failed      List the assemblies that have failed to complete.\n";
     print "\n";
     print "BRANCH SELECTION\n";
     print "  -branch B    Test branch 'B'.\n";
@@ -157,25 +163,27 @@ if (($doHelp) || ($errs ne "")) {
 }
 
 
-if ($doList) {
+if ($doList eq "refs") {
     my %refs;
-    my %asms;
+    my @asms;
     my $mLen = 0;
     my $nRef = 0;
     my $wRef = 0;
 
+    #  Build a map from recipe to reference assembly.
     open(F, "ls -l recipes/*/refasm |");
     while (<F>) {
-        if (m!\srecipes/(\S*)/refasm\s->\s(\S+)$!) {
-            $refs{$1} = $2;
-        }
+        $refs{$1} = $2   if (m!\srecipes/(\S*)/refasm\s->\s(\S+)$!);
     }
     close(F);
 
+    #  Build a list of the assemblies we know about, remember the length of
+    #  the longest name (for pretty-printing) and count how assemblies many
+    #  have or do not have a reference assembly.
     open(F, "ls -l recipes/*/submit.sh |");
     while (<F>) {
         if (m!\srecipes/(\S*)/submit.sh$!) {
-            $asms{$1} = $1;
+            push @asms, $1;
 
             $mLen = ($mLen < length($1)) ? length($1) : $mLen;
 
@@ -185,35 +193,105 @@ if ($doList) {
     }
     close(F);
 
+    #  If assemblies without a reference exist, print them.
     if ($nRef) {
         print "\n";
         print "Assemblies without references:\n";
 
-        foreach my $asm (sort keys %asms) {
-            if (exists($refs{$asm})) {
-                #printf "  %-*s -> %s\n", $mLen, $asm, $refs{$asm};
-            } else {
-                printf "  %-*s -> no reference assembly\n", $mLen, $asm
-            }
+        foreach my $asm (sort @asms) {
+            printf("  %-*s -> no reference assembly\n", $mLen, $asm)   if (!exists($refs{$asm}));
         }
     }
 
+    #  If assemblies with a reference exist, print the reference assembly mapping.
     if ($wRef) {
         print "\n";
         print "Current reference assebmlies:\n";
 
-        foreach my $asm (sort keys %asms) {
-            if (exists($refs{$asm})) {
-                printf "  %-*s -> %s\n", $mLen, $asm, $refs{$asm};
-            } else {
-                #printf "  %-*s -> no reference assembly\n", $mLen, $asm
-            }
+        foreach my $asm (sort keys %refs) {
+            printf("  %-*s -> %s\n", $mLen, $asm, $refs{$asm});
         }
     }
 
     exit(0);
 }
 
+
+if (($doList eq "asms") ||
+    ($doList eq "fini") ||
+    ($doList eq "miss") ||
+    ($doList eq "fail")) {
+    my @asms;
+    my @regr;
+
+    my $mLen = 0;
+
+    open(F, "ls -l recipes/*/submit.sh |");
+    while (<F>) {
+        if (m!\srecipes/(\S*)/submit.sh$!) {
+            push @asms, $1;
+
+            $mLen = ($mLen < length($1)) ? length($1) : $mLen;
+        }
+    }
+    close(F);
+
+    open(F, "ls -d 20* |");
+    while (<F>) {
+        if (m!(\d\d\d\d-\d\d-\d\d-\d\d\d\d-\S+-............)$!) {
+            push @regr, $1;
+
+            $mLen = ($mLen < length($1)) ? length($1) : $mLen;
+        }
+    }
+    close(F);
+
+    foreach my $asm (sort @asms) {
+        my @results;
+        my $show = 0;
+
+        foreach my $reg (sort @regr) {
+            my $sta = (-e "$reg/$asm-submit.sh")         ? "YES" : "no";   #  Started?
+            my $ctg = (-e "$reg/$asm/asm.contigs.fasta") ? "YES" : "no";   #  Contigs exist?
+            my $qst = (-e "$reg/$asm/quast/report.txt")  ? "YES" : "no";   #  Quast exists?
+
+            #  Some horrible if tests here.  Show results if:
+            #    -list-assemblies; (show everything)
+            #    -list-completed  and any of the above three tests are true.
+            #    -list-missing    and the assembly was not started.
+            #    -list-failed     and the assembly was started but not finished.
+            #
+            $show = 1   if (($doList eq "asms"));
+            $show = 1   if (($doList eq "fini") && (($sta eq "YES") ||  ($ctg eq "YES") || ($qst eq "YES")));
+            $show = 1   if (($doList eq "miss") && (($sta eq  "no")));
+            $show = 1   if (($doList eq "fail") &&  ($sta eq "YES") && (($ctg eq  "no") || ($qst eq  "no")));
+
+            #  Then add this assembly result to the output list if:
+            #    -list-assemblies; (show everything)
+            #    -list-completed and it was at least started.
+            #    -list-missing   and it was not started.
+            #    -list-failed    and it was started but not finished.
+            #
+            if ((($doList eq "asms")) ||
+                (($doList eq "fini") &&  ($sta eq "YES")) ||
+                (($doList eq "miss") &&  ($sta eq  "no")) ||
+                (($doList eq "fail") && (($sta eq "YES") && (($ctg ne "YES") || ($qst ne "YES"))))) {
+                push @results, sprintf("%-*s  %7s  %7s  %5s\n", $mLen, $reg, $sta, $ctg, $qst);
+            }
+        }
+
+        if (($show) && (scalar(@results > 0))) {
+            printf("\n");
+            printf("%-*s  Started  Contigs  Quast\n", $mLen, $asm);
+            printf("-" x $mLen . "  -------  -------  -----\n");
+            foreach my $res (@results) {
+                print $res;
+            }
+        }
+    }
+
+    exit(0);
+}
 
 
 #
@@ -482,13 +560,22 @@ if (scalar(@recipes) == 0) {
 foreach my $recipe (@recipes) {
     print "START recipe $recipe.\n";
 
-    postHeading("Starting recipe $recipe in $regr.");
+    if (! -e "$wrkdir/$regr/$recipe/quast/report.txt") {
+        if (! -e "$wrkdir/$regr/$recipe-submit.sh") {
+            postHeading("Starting recipe $recipe in $regr.");
+            system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
+        } else {
+            postHeading("Resuming recipe $recipe in $regr.");
+        }
 
-    my $lerr = system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
-    my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
+        my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
 
-    if ($eerr) {
-        postHeading("FAILED to start recipe $recipe.");
-        postFile(undef, "$wrkdir/$regr/$recipe-submit.err");
+        if ($eerr) {
+            postHeading("FAILED to start recipe $recipe.");
+            postFile(undef, "$wrkdir/$regr/$recipe-submit.err");
+        }
+    } else {
+        postHeading("Recipe $recipe in $regr is already finished.");
     }
+
 }
