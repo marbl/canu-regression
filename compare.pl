@@ -30,7 +30,7 @@ use List::Util qw(min max);
 #
 
 sub readFile ($$$) {
-    my $file = shift @_;
+    my $file      = shift @_;
     my $linelimit = shift @_;
     my $sizelimit = shift @_;
 
@@ -141,13 +141,19 @@ sub linediff ($$$$@) {
 
 
 
-sub diffA ($$$$$$$$@) {
-    my $newf   = shift @_;
-    my $misf   = shift @_;
-    my $samf   = shift @_;
-    my $diff   = shift @_;
-    my $faif   = shift @_;
-    my $difc   = shift @_;
+#  Compare an ASCII output file against the refefremce.
+#
+#  Returns true if there is a log difference to show.
+#
+#  Appends the filename to newf, misf, samf, diff based on how it differs from the reference.
+#  Adds one to difc if the results are different.
+#
+sub diffA ($$$$$$$@) {
+    my $newf   = shift @_;   #  List of files that are only in the assembly
+    my $misf   = shift @_;   #  List of files that are only in the reference (missing from the assembly)
+    my $samf   = shift @_;   #  List of files that are the same, either identical files, or both missing
+    my $diff   = shift @_;   #  List of files that are not the same
+    my $difc   = shift @_;   #  Number of significant differences found.
     my $recipe = shift @_;
     my $file   = shift @_;
     my $n      = shift @_;   #  optional, see linediff() above
@@ -179,12 +185,15 @@ sub diffA ($$$$$$$$@) {
 
 
 
-sub diffB ($$$$$$$$) {
+#  Compare a BINARY output file against the refefremce.
+#
+#  Input and output are the same as diffA() above.
+#
+sub diffB ($$$$$$$) {
     my $newf   = shift @_;
     my $misf   = shift @_;
     my $samf   = shift @_;
     my $diff   = shift @_;
-    my $faif   = shift @_;
     my $difc   = shift @_;
     my $recipe = shift @_;
     my $file   = shift @_;
@@ -403,19 +412,14 @@ my $newf = "";
 my $misf = "";
 my $samf = "";
 my $diff = "";
-my $faif = "";
 
 my $IGNC = 0;
 my $difc = 0;
 
-my $report;
+my $report = "";
 my @logs;
 
-$report  = "*Report* for ${recipe}.\n";
-$report .= "*Compare* ${regression} against reference ${refregr}.\n";
-$report .= "\n";
-
-my $d00 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.report");
+my $d00 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.report");
 
 $report .= "The *assembly report* has changed.\n"       if ($d00);
 
@@ -424,8 +428,8 @@ $report .= "The *assembly report* has changed.\n"       if ($d00);
 #  Check seqStore, report differences in what was loaded.
 #
 
-my $d01 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/errorLog");
-my $d02 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/info.txt", 2, 60, 99);
+my $d01 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/errorLog");
+my $d02 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/info.txt", 2, 60, 99);
 
 $report .= "Both seqStore *errorLog* and *info.txt* changed.\n"       if ( $d01 &&  $d02);
 $report .= "seqStore *info.txt* changed; errorLog is the same.\n"   if (!$d01 &&  $d02);
@@ -439,13 +443,13 @@ if ($d02) {
 #  Check read lengths
 #
 
-#iffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/readlengths-cor.png");
-#iffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/readlengths-obt.png");
-#iffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/readlengths-utg.png");
+#iffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/readlengths-cor.png");
+#iffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/readlengths-obt.png");
+#iffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/readlengths-utg.png");
 
-my $d03 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/readlengths-cor.dat");
-my $d04 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/readlengths-obt.dat");
-my $d05 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.seqStore/readlengths-utg.dat");
+my $d03 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/readlengths-cor.dat");
+my $d04 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/readlengths-obt.dat");
+my $d05 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.seqStore/readlengths-utg.dat");
 
 $report .= "*Uncorrected read lengths* changed.\n"                              if ( $d03 && !$d04 && !$d05);
 $report .= "*Corrected read lengths* changed.\n"                                if (!$d03 &&  $d04 && !$d05);
@@ -461,17 +465,17 @@ $report .= "*Uncorrected, corrected and trimmed read lengths* all changed.\n"   
 #  Not sure how to check the intermediate reads, so we don't do it directly.
 #
 
-#iffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.correctedReads.fasta.gz");
-#iffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.trimmedReads.fasta.gz");
+#iffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.correctedReads.fasta.gz");
+#iffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.trimmedReads.fasta.gz");
 
-my $d09 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "correction/2-correction/asm.readsToCorrect.log");
-my $d10 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "correction/asm.loadCorrectedReads.log");
+my $d09 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "correction/2-correction/asm.readsToCorrect.log");
+my $d10 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "correction/asm.loadCorrectedReads.log");
 
 $report .= "The *list of reads to correct* changed.\n"          if ($d09);
 $report .= "The *loading of corrected reads* has changed.\n"    if ($d10 && !$d09 && !$d04);
 
-my $d11 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "trimming/3-overlapbasedtrimming/asm.1.trimReads.log");
-my $d12 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "trimming/3-overlapbasedtrimming/asm.2.splitReads.log");
+my $d11 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "trimming/3-overlapbasedtrimming/asm.1.trimReads.log");
+my $d12 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "trimming/3-overlapbasedtrimming/asm.2.splitReads.log");
 
 $report .= "*Read trimming logs* changed.\n"    if ($d11);
 $report .= "*Read splitting logs* changed.\n"   if ($d12);
@@ -479,13 +483,13 @@ $report .= "*Read splitting logs* changed.\n"   if ($d12);
 ########################################
 #  We save the scripts, but it's not terribly useful to diff them.
 #
-#iffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "canu-scripts.tar.gz");
+#iffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "canu-scripts.tar.gz");
 
 
 ########################################
 #  All we can check for OEA is the binary file of corrections to reads.
 
-my $d13 = diffB(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "unitigging/3-overlapErrorAdjustment/red.red");
+my $d13 = diffB(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "unitigging/3-overlapErrorAdjustment/red.red");
 
 $report .= "*OEA binary output 'red.red'* has changed.\n"   if ($d13);
 
@@ -498,9 +502,9 @@ my $d15 = diffA(\$IGNF, \$IGNF, \$IGNF, \$IGNF, \$IGNF, \$IGNC, $recipe, "unitig
 my $d16 = diffA(\$IGNF, \$IGNF, \$IGNF, \$IGNF, \$IGNF, \$IGNC, $recipe, "unitigging/4-unitigger/asm.012.breakRepeats.thr000.num000.log");
 my $d17 = diffA(\$IGNF, \$IGNF, \$IGNF, \$IGNF, \$IGNF, \$IGNC, $recipe, "unitigging/4-unitigger/unitigger.err");
 
-my $d18 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "unitigging/4-unitigger/asm.best.edges");
-my $d19 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "unitigging/4-unitigger/asm.003.buildGreedy.sizes");
-my $d20 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "unitigging/4-unitigger/asm.012.breakRepeats.sizes");
+my $d18 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "unitigging/4-unitigger/asm.best.edges");
+my $d19 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "unitigging/4-unitigger/asm.003.buildGreedy.sizes");
+my $d20 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "unitigging/4-unitigger/asm.012.breakRepeats.sizes");
 
 $report .= "*Bogart logging* has differences.\n"                    if ($d14 || $d15 || $d16 || $d17);
 $report .= "*Bogart best edges* are different!\n"                   if ($d18);
@@ -511,9 +515,9 @@ $report .= "*Bogart post-splitting contig sizes* are different.\n"  if ($d20);
 #  Check assembled contigs and the read layouts.  All we can do is report difference.
 #
 
-my $d06 = diffB(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.contigs.fasta");
-my $d07 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.contigs.layout.readToTig");
-my $d08 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "asm.contigs.layout.tigInfo");
+my $d06 = diffB(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.contigs.fasta");
+my $d07 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.contigs.layout.readToTig");
+my $d08 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "asm.contigs.layout.tigInfo");
 
 $report .= "*Contig sequences* have changed!  (but layouts and metadata are the same)\n"     if ( $d06 && !$d07 && !$d08);
 $report .= "*Contig layouts* have changed!  (but sequence and metadata are the same)\n"      if (!$d06 &&  $d07 && !$d08);
@@ -531,16 +535,16 @@ $report .= "*Contig sequences, layouts and metadata* have all changed!\n"       
 my $qrp = filterQuastReport("quast/report.txt", "quast/report.txt.filtered");
 my $qml = filterQuastStdout("quast/contigs_reports/contigs_report_asm-contigs.stdout", "quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered");
 
-my $d21 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/report.txt.filtered", 2, $qrp, 99);
+my $d21 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "quast/report.txt.filtered", 2, $qrp, 99);
 
-my $d23 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/contigs_reports/misassemblies_report.txt");
-my $d24 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/contigs_reports/transposed_report_misassemblies.txt");
-my $d25 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/contigs_reports/unaligned_report.txt");
+my $d23 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "quast/contigs_reports/misassemblies_report.txt");
+my $d24 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "quast/contigs_reports/transposed_report_misassemblies.txt");
+my $d25 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "quast/contigs_reports/unaligned_report.txt");
 
-my $d26 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info");
-my $d27 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/contigs_reports/contigs_report_asm-contigs.unaligned.info");
+my $d26 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "quast/contigs_reports/contigs_report_asm-contigs.mis_contigs.info");
+my $d27 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "quast/contigs_reports/contigs_report_asm-contigs.unaligned.info");
 
-my $d28 = diffA(\$newf, \$misf, \$samf, \$diff, \$faif, \$difc, $recipe, "quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered", 2, $qml, 99);
+my $d28 = diffA(\$newf, \$misf, \$samf, \$diff, \$difc, $recipe, "quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered", 2, $qml, 99);
 
 $report .= "*Quast* has differences.\n"   if ($d21 || $d23 || $d24 || $d25 || $d26 || $d27 || $d28);
 
@@ -581,36 +585,48 @@ if ($misf ne "") {
     $report .= $misf;
 }
 
-if ($faif ne "") {
-    $report .= "\n";
-    $report .= "Files that *failed* to return a valid comparison result:\n";
-    $report .= $faif;
-}
-
 #  Report the results.
 
 if ($difc == 0) {
+    my $head;
+
+    $head  = ":canu_success: *Report* for ${recipe}:\n";
+    $head .= "${regression} test assembly vs\n";
+    $head .= "${refregr} reference assembly\n";
+
+    # ":canu_success: *$recipe* has no differences between _${regression}_ and reference _${refregr}_.");
 
     if ($postSlack == 1) {
-        postHeading(":canu_success: *$recipe* has no differences between _${regression}_ and reference _${refregr}_.");
+        postHeading($head);
     } else {
-        print "SUCCESS $recipe has no differences between ${regression} and reference _${refregr}_.\n";
+        print $head;
+        #"SUCCESS $recipe has no differences between ${regression} and reference _${refregr}_.\n";
     }
 }
 
 else {
+    my $head;
+
+    $head  = ":canu_fail: *Report* for ${recipe} *significant differences exist*:\n";
+    $head .= "${regression} test assembly vs\n";
+    $head .= "${refregr} reference assembly\n";
+
     if ($postSlack == 1) {
-        postHeading(":canu_fail: *$recipe* has differences between _${regression}_ and reference _${refregr}_.");
+        postHeading($head);
         postFormattedText(undef, $report);
         foreach my $log (@logs) {
-            postFormattedText(undef, $log);
+            if (defined($log)) {
+                postFormattedText(undef, $log);
+            }
         }
     } else {
-        print "FAIL $recipe has differences between ${regression} and reference _${refregr}_.\n";
+        print $head;
         print $report;
         foreach my $log (@logs) {
-            print "\n----------------------------------------\n";
-            print $log;
+            if (defined($log)) {
+                print "\n----------------------------------------\n";
+                print $log;
+            }
         }
     }
 }
