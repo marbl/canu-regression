@@ -564,9 +564,9 @@ if ($d28) {
     push @logs, readFile("quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered.diffs", 60, 8192);
 }
 
-else {
-    push @logs, readFile("quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered", 60, 8192);
-}
+#else {
+#    push @logs, readFile("quast/contigs_reports/contigs_report_asm-contigs.stdout.filtered", 60, 8192);
+#}
 
 
 
