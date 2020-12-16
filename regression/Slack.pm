@@ -137,7 +137,7 @@ sub postCodeBlock ($$) {
 
     postHeading($mesg);
 
-    if ($text ne "") {
+    if (defined($text) && ($text ne "")) {
         chomp $text;
         $text = "```\n$text\n```\n";
 
@@ -161,7 +161,7 @@ sub postFormattedText ($$) {
 
     postHeading($mesg);
 
-    if ($text ne "") {
+    if (defined($text) && ($text ne "")) {
         $json->{'type'} = "mrkdwn";
         $json->{'text'} = $text;
 
