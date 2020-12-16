@@ -22,6 +22,7 @@ use warnings;
 use FindBin;
 use lib "$FindBin::RealBin/regression";
 use Slack;
+use Update;
 
 use Time::Local;
 use Cwd qw(getcwd abs_path);
@@ -110,9 +111,6 @@ while (scalar(@ARGV) > 0) {
         $date    = $now
     }
 
-    elsif ($arg eq "-quick")             {  $tests = "zzzQUICK";   }
-    elsif ($arg eq "-daily")             {  $tests = "zzzDAILY";   }
-    elsif ($arg eq "-weekly")            {  $tests = "zzzWEEKLY";  }
     elsif (-e "recipes/$test")           {  $tests = $test;        }
     elsif (-e "recipes/$recp/submit.sh") {  push @recipes, $recp;  }
 
@@ -150,9 +148,8 @@ if (($doHelp) || ($errs ne "")) {
     print "  -canu P      Use a pre-compiled version found in path P.\n";
     print "\n";
     print "TEST SELECTION (exactly one must be supplied)\n";
-    print "  -quick       Lambda, both PacBio and Nanopore.\n";
-    print "  -daily       Several drosophila, PacBio, Nanopore and HiFi.\n";
-    print "  -weekly      (nothing yet)\n";
+    print "  CLASS        Run tests listed in recipes/zzzCLASS\n";
+    print "  recipe/NAME  Run test recipe/NAME\n";
     print "\n";
     print "Logging ends up in Slack.  Progress is reported to stdout.\n";
     print "\n";
@@ -365,17 +362,23 @@ if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
 #
 
 if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
-    postHeading("*Update Canu* branch $branch in '$gitrepo'.");
+    my $al = updateRepo("$gitrepo/src/seqrequester");
+    my $bl = updateRepo("$gitrepo/src/utility");
+    my $cl = updateRepo("$gitrepo/src/meryl");
+    my $dl = updateRepo("$gitrepo");
 
-    system("sh ./update-repo.sh $gitrepo/src/seqrequester > update-seqrequester.out 2>&1");
-    system("sh ./update-repo.sh $gitrepo/src/utility      > update-utility.out 2>&1");
-    system("sh ./update-repo.sh $gitrepo/src/meryl        > update-meryl.out 2>&1");
-    system("sh ./update-repo.sh $gitrepo/                 > update-canu.out 2>&1");
-
-    #postFile("Seqrequester changes", "update-seqrequester.out");
-    #postFile("Utility changes",      "update-utility.out");
-    #postFile("Meryl changes",        "update-meryl.out");
-    #postFile("Canu changes",         "update-canu.out");
+    if (($al ne "") ||
+        ($bl ne "") ||
+        ($cl ne "") ||
+        ($dl ne "")) {
+        postHeading("*Update Canu* branch $branch in '$gitrepo'.");
+        postFormattedText("*seqrequester submodule changes*:", $al)   if ($al ne "");
+        postFormattedText("*utility submodule changes*:", $bl)        if ($bl ne "");
+        postFormattedText("*meryl submodule changes*:", $cl)          if ($cl ne "");
+        postFormattedText("*canu changes*:", $dl)                     if ($dl ne "");
+    } else {
+        postHeading("*No changes* for branch $branch in '$gitrepo'.");
+    }
 }
 
 #
@@ -579,3 +582,5 @@ foreach my $recipe (@recipes) {
     }
 
 }
+
+exit(0);
