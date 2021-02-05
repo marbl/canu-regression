@@ -24,7 +24,7 @@ use lib "$FindBin::RealBin/regression";
 use Slack;
 use Update;
 
-use Time::Local;
+use Time::Local qw(timelocal timelocal_modern);
 use Cwd qw(getcwd abs_path);
 
 my $wrkdir        = abs_path(".");
@@ -46,10 +46,20 @@ my $date    = undef;
 my $branch  = "master";
 my $hash    = undef;
 my $canu    = "";
+my $resub   = "no";        #  Time of submission and time of resubmission.
+my $ropts   = "";          #  Options passed to resubmission.
 
 my $regr     = undef;      #  Eventually set to "$date-$branch-$hash"
 my $tests    = undef;
 my @recipes;
+
+sub saveOpt ($) {
+    if (length($ropts) > 0) {
+        $ropts .= " $_[0]";
+    } else {
+        $ropts  =  "$_[0]";
+    }
+}
 
 while (scalar(@ARGV) > 0) {
     my $arg  = shift @ARGV;
@@ -75,44 +85,56 @@ while (scalar(@ARGV) > 0) {
 
     elsif ($arg eq "-fetch") {
         $doFetch = 1;
+        saveOpt($arg);
     }
 
     elsif ($arg eq "-no-fetch") {
         $doFetch = 0;
+        saveOpt($arg);
     }
 
     elsif ($arg eq "-branch") {
         $branch  = shift @ARGV;
+        saveOpt("$arg $branch");
     }
 
     elsif ($arg eq "-master") {
         $branch  = "master";
+        saveOpt($arg);
     }
 
     elsif ($arg eq "-latest") {
         $hash    = undef;
         $date    = $now;
+        saveOpt($arg);
     }
 
     elsif ($arg eq "-hash") {
         $hash    = shift @ARGV;
         $date    = undef;
+        saveOpt("$arg $hash");
     }
 
     elsif ($arg eq "-date") {
         $hash    = undef;
         $date    = shift @ARGV;
+        saveOpt("$arg $date");
     }
 
     elsif ($arg eq "-canu") {
         $doFetch = 0;
         $canu    = shift @ARGV;
         $hash    = undef;
-        $date    = $now
+        $date    = $now;
+        saveOpt("$arg $canu");
     }
 
-    elsif (-e "recipes/$test")           {  $tests = $test;        }
-    elsif (-e "recipes/$recp/submit.sh") {  push @recipes, $recp;  }
+    elsif ($arg eq "-resubmit") {
+        $resub = shift @ARGV;
+    }
+
+    elsif (-e "recipes/$test")           {  $tests = $test;        saveOpt($arg);  }
+    elsif (-e "recipes/$recp/submit.sh") {  push @recipes, $recp;  saveOpt($arg);  }
 
     else {
         $errs .= "ERROR: Unknown option '$arg'.\n";
@@ -151,7 +173,32 @@ if (($doHelp) || ($errs ne "")) {
     print "  CLASS        Run tests listed in recipes/zzzCLASS\n";
     print "  recipe/NAME  Run test recipe/NAME\n";
     print "\n";
-    print "Logging ends up in Slack.  Progress is reported to stdout.\n";
+    print "RECURRENCY\n";
+    print "  -resubmit x  Submit another regression run to the grid, scheduled to start after some time\n";
+    print "               delay.  The 'x' parameter descibes both when to run and how frequently to run:\n";
+    print "\n";
+    print "                   YYYY-MM-DD-hh:mm+dh:dm\n";
+    print "                   \--------------/ \---/\n";
+    print "                       base_time      ^- delay_time\n";
+    print "\n";
+    print "               The next job will start at the first base_time + N * delay_time after the current\n";
+    print "               time (adjusted to prevent two jobs from running within delay_time/2 of each other).\n";
+    print "               This means that if the grid job is delayed for whatever reason (busy queue, user\n";
+    print "               hold) the 'missed' regression runs will be skipped.\n";
+    print "\n";
+    print "               Example:  A delay_time of 01:00 (or 00:60) will run regression hourly.  If a run\n";
+    print "                         is delayed for several hours, when it eventually does start, it will\n";
+    print "                         resubmit itself to start on the next hour:\n";
+    print "                             a run at 04:00 - submits next to run at 05:00\n";
+    print "                                      06:34 - job finally starts, submits next for 08:00\n";
+    print "                                      08:00 - back on schedule\n";
+    print "\n";
+    print "               Example:  Both\n";
+    print "                            2021-02-05-23:59+168:00 and\n";
+    print "                            1971-07-09-23:59+168:00 will submit jobs to run weekly at\n";
+    print "                         midnight on Friday, starting with the next Friday.\n";
+    print "\n";
+    print "Logging ends up in Slack.  Some trivial progress is reported to stdout.\n";
     print "\n";
 
     print "$errs\n"   if ($errs ne "");
@@ -333,7 +380,7 @@ if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
         $onBranch = $1   if (m/^On\s+branch\s+(.*)$/);
     }
     close(F);
-    
+
     if ($onBranch ne $branch) {
         my $lines;
 
@@ -348,7 +395,7 @@ if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
         close(F);
 
         unlink "$gitrepo/checkout.err";
- 
+
         postFormattedText("*Switch from branch '$onBranch' to branch '$branch'.*", $lines);
     }
 }
@@ -498,7 +545,7 @@ if (! -e "$wrkdir/$regr/canu/src/make.err") {
         $_ = <ERRS>;
 
         if (m/^Success!\s*$/) {
-            $isOK=1;        
+            $isOK=1;
         }
 
         $ot .= $_;
@@ -560,27 +607,157 @@ if (scalar(@recipes) == 0) {
     print "NO RECIPES supplied; no tests started.\n";
 }
 
+my $nExist    = 0;   #  Num tests that have already been started
+my $nFinished = 0;   #  Num tests that are finsihed
+my $nSubmit   = 0;   #  Num tests that were submitted
+
 foreach my $recipe (@recipes) {
-    print "START recipe $recipe.\n";
-
-    if (! -e "$wrkdir/$regr/$recipe/quast/report.txt") {
-        if (! -e "$wrkdir/$regr/$recipe-submit.sh") {
-            postHeading("Starting recipe $recipe in $regr.");
-            system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
-        } else {
-            postHeading("Resuming recipe $recipe in $regr.");
-        }
-
-        my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
-
-        if ($eerr) {
-            postHeading("FAILED to start recipe $recipe.");
-            postFile(undef, "$wrkdir/$regr/$recipe-submit.err");
-        }
-    } else {
-        postHeading("Recipe $recipe in $regr is already finished.");
+    if (-e "$wrkdir/$regr/$recipe/quast/report.txt") {
+        $nFinished++;
+        next;
     }
 
+    if (-e "$wrkdir/$regr/$recipe-submit.sh") {
+        $nExist++;
+        next;
+    }
+
+    postHeading("Start $regr $recipe.");
+    system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
+
+    my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
+    $nSubmit++;
+
+    if ($eerr) {
+        postHeading("FAILED!.");
+        postFile(undef, "$wrkdir/$regr/$recipe-submit.err");
+    }
+}
+
+my $status;
+
+if    (($nFinished == 0) && ($nExist == 0) && ($nSubmit  > 0))  {  $status = "$nSubmit recipes *started* in $regr.\n";  }
+elsif (($nFinished  > 0) && ($nExist == 0) && ($nSubmit == 0))  {  $status = "*All complete* in $regr.\n";  }
+elsif (($nFinished == 0) && ($nExist  > 0) && ($nSubmit == 0))  {  $status = "All $nExist recipes *crashed* or *running* in $regr.\n";  }
+elsif (($nFinished  > 0) && ($nExist  > 0) && ($nSubmit == 0))  {  $status = "Some recipes *finished* ($nFinished), some *crashed* or *running* ($nExist) in $regr.\n";  }
+else                                                            {  $status = "$nSubmit recipes *started*, $nExist recipes *running*, $nFinished *finished* in $regr.\n";  }
+
+print "$status";
+postFormattedText(undef, $status);
+
+
+#
+#  RESUBMIT, if requested.
+#
+if ($resub ne "no") {
+    my ($stYY, $stMM, $stDD, $sthh, $stmm, $stSS);   #  Start time of this run.
+    my ($suYY, $suMM, $suDD, $suhh, $summ, $suSS);   #  Desired start time of the next run.
+
+    my ($delayhh, $delaymm, $delay);
+
+    #  Parse the start time of this run to decide a base resubmition time.
+
+    if ($now =~ m/(\d\d\d\d)-(\d\d)-(\d\d)-(\d\d):*(\d\d)/) {
+        $stYY = $1;
+        $stMM = $2;
+        $stDD = $3;
+        $sthh = $4;
+        $stmm = $5;
+        $stSS = timelocal(0, $stmm, $sthh, $stDD, $stMM-1, $stYY-1900);
+    }
+
+    #  Parse the resubmit information to figure out when we were supposed to
+    #  have started, and how long to wait for the next batch.
+
+    if ($resub =~ m/^(\d\d\d\d)-(\d\d)-(\d\d)-(\d\d):*(\d\d)\+(\d+):(\d\d)$/) {
+        $stYY = $1;
+        $stMM = $2;
+        $stDD = $3;
+        $sthh = $4;
+        $stmm = $5;
+        $stSS = timelocal(0, $stmm, $sthh, $stDD, $stMM-1, $stYY-1900);
+
+        $delayhh = $6;
+        $delaymm = $7;
+        $delay   = $6 * 3600 + $7 * 60;
+    }
+    elsif ($resub =~ m/^(\d+):(\d\d)$/) {
+        $delayhh = $1;
+        $delaymm = $2;
+        $delay   = $1 * 3600 + $2 * 60;
+    }
+    else {
+        postHeading("FAILED to resubmit; invalid -resub $resub");
+        exit(0);
+    }
+
+    #  Add the delay to the start time until the desired resubmit time is
+    #  after the current time.
+
+    $suSS = $stSS + $delay;
+
+    while ($suSS + $delay / 2 < time()) {
+        $suSS += $delay;
+    }
+
+    #  Convert that back to YY-MM-DD HH:MM
+
+    (undef, $summ, $suhh, $suDD, $suMM, $suYY) = localtime($suSS);
+
+    $suMM += 1;     #  Thanks.
+    $suYY += 1900;
+
+    my $basetime = sprintf("%04d-%02d-%02d-%02d:%02d",           $stYY, $stMM, $stDD, $sthh, $stmm);
+    my $resubmit = sprintf("%04d-%02d-%02d-%02d:%02d+%02d:%02d", $suYY, $suMM, $suDD, $suhh, $summ, $delayhh, $delaymm);
+
+    #  And resubmit.
+
+    open(F, "> submit.sh");
+    print F "#!/bin/sh\n";
+    print F "\n";
+    print F "if [ \"x\$SGE_ROOT\" != \"x\" -a \\\n";
+    print F "     -e  \$SGE_ROOT/\$SGE_CELL/common/settings.sh ]; then\n";
+    print F "  . \$SGE_ROOT/\$SGE_CELL/common/settings.sh\n";
+    print F "fi\n";
+    print F "\n";
+    print F "perl regression.pl $ropts -resubmit $resubmit\n";
+    print F "exit 0\n";
+    close(F);
+
+    #    qsub -a [[CC]YY]MMDDhhmm.ss
+    #
+    #    sbatch -b [fika | teatime | HH:MM:SS | MMDDYY MM/DD/YY YYYY-MM-DD YYYY-MM-DD[THH:MM[:SS]]
+    #           -b tomorrow schedules it start at midnight
+
+    if (1) {
+        my $at = sprintf("%04d%02d%02d%02d%02d.00", $suYY, $suMM, $suDD, $suhh, $summ);
+
+        system("qsub -cwd -j y -o /dev/null -a $at ./submit.sh > ./submit.$$.err 2>&1");
+    } else {
+        my $at = sprintf("%04d-%02d-%02d-%02d:%02d", $suYY, $suMM, $suDD, $suhh, $summ);
+
+        system("sbatch -D . -o /dev/null -b $at -p quick ./submit.sh > ./submit.$$.err 2>&1");
+    }
+
+    my $err;
+
+    open(F, "< ./submit.$$.err");
+    while (<F>) {
+        chomp;
+
+        if (m/Your\sjob\s(\d+)\s/) {
+            $err .= $1;
+        } else {
+            $err .= $_;
+        }
+    }
+    close(F);
+
+    print "*Resubmitted* to run at $resubmit ($err)\n";
+    postFormattedText(undef, "*Resubmitted* to run at $resubmit ($err).\n");
+
+    unlink "submit.sh";
+    unlink "submit.$$.err";
 }
 
 exit(0);
