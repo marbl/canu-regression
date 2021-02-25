@@ -39,6 +39,6 @@ fi
   genomeSize=3100000000 \
   onSuccess=../../recipes/$recp/success.sh \
   onFailure=../../recipes/$recp/failure.sh \
-  -pacbio-hifi ../recipes/$recp/reads/*xz
+  -pacbio-hifi ../recipes/$recp/reads/*.[gx]z
 
 exit 0
