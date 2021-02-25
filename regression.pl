@@ -24,7 +24,7 @@ use lib "$FindBin::RealBin/regression";
 use Slack;
 use Update;
 
-use Time::Local qw(timelocal timelocal_modern);
+use Time::Local qw(timelocal);
 use Cwd qw(getcwd abs_path);
 
 my $wrkdir        = abs_path(".");
@@ -710,6 +710,9 @@ if ($resub ne "no") {
     my $basetime = sprintf("%04d-%02d-%02d-%02d:%02d",           $stYY, $stMM, $stDD, $sthh, $stmm);
     my $resubmit = sprintf("%04d-%02d-%02d-%02d:%02d+%02d:%02d", $suYY, $suMM, $suDD, $suhh, $summ, $delayhh, $delaymm);
 
+    my $qat = sprintf("%04d%02d%02d%02d%02d.00",  $suYY, $suMM, $suDD, $suhh, $summ);   #  For qsub
+    my $sat = sprintf("%04d-%02d-%02d-%02d:%02d", $suYY, $suMM, $suDD, $suhh, $summ);   #  For sbatch
+
     #  And resubmit.
 
     open(F, "> submit.sh");
@@ -724,20 +727,23 @@ if ($resub ne "no") {
     print F "exit 0\n";
     close(F);
 
-    #    qsub -a [[CC]YY]MMDDhhmm.ss
-    #
-    #    sbatch -b [fika | teatime | HH:MM:SS | MMDDYY MM/DD/YY YYYY-MM-DD YYYY-MM-DD[THH:MM[:SS]]
-    #           -b tomorrow schedules it start at midnight
+    my $qsub   = `which qsub   2> /dev/null`;   chomp $qsub;
+    my $sbatch = `which sbatch 2> /dev/null`;   chomp $sbatch;
 
-    if (1) {
-        my $at = sprintf("%04d%02d%02d%02d%02d.00", $suYY, $suMM, $suDD, $suhh, $summ);
-
-        system("qsub -cwd -j y -o /dev/null -a $at ./submit.sh > ./submit.$$.err 2>&1");
-    } else {
-        my $at = sprintf("%04d-%02d-%02d-%02d:%02d", $suYY, $suMM, $suDD, $suhh, $summ);
-
-        system("sbatch -D . -o /dev/null -b $at -p quick ./submit.sh > ./submit.$$.err 2>&1");
+    if ((-e $qsub) &&
+        (-e $sbatch)) {
+        postHeading("*HELP!*  Found both `$qsub` and `$sbatch`!");
     }
+    elsif (-e $qsub) {
+        system("$qsub -cwd -j y -o /dev/null -a $qat ./submit.sh > ./submit.$$.err 2>&1");
+    }
+    elsif (-e $sbatch) {
+        system("$sbatch -D . -o /dev/null -b $sat -p quick ./submit.sh > ./submit.$$.err 2>&1");
+    }
+    else {
+        postHeading("*HELP!*  Found neither `qsub` nor `sbatch`; don't know how to submit grid jobs.");
+    }
+
 
     my $err;
 
