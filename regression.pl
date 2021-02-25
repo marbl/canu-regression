@@ -372,8 +372,8 @@ if (($doFetch) && ($canu eq "") && (! -d $gitrepo)) {
 #  already.
 #
 
-if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
-    my $onBranch;
+if (($canu eq "") && (-d $gitrepo)) {
+    my $onBranch = "";
 
     open(F, "cd $gitrepo && git status |");
     while (<F>) {
@@ -385,6 +385,7 @@ if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
         my $lines;
 
         system("cd $gitrepo && git checkout $branch > checkout.err 2>&1");
+        system("cd $gitrepo && git submodule update > update.err   2>&1");
 
         open(F, "< checkout.err");
         while (<F>) {
@@ -395,6 +396,7 @@ if (($doFetch) && ($canu eq "") && (-d $gitrepo)) {
         close(F);
 
         unlink "$gitrepo/checkout.err";
+        unlink "$gitrepo/update.err";
 
         postFormattedText("*Switch from branch '$onBranch' to branch '$branch'.*", $lines);
     }
