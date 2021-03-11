@@ -23,6 +23,7 @@ use FindBin;
 use lib "$FindBin::RealBin/regression";
 use Slack;
 use Update;
+use Schedule;
 
 use Time::Local qw(timelocal);
 use Cwd qw(getcwd abs_path);
@@ -38,16 +39,18 @@ my $dow           = `date +%w`;              chomp $dow;    #  Day of week, used
 #  Parse the command line.
 #
 
-my $doHelp  = 0;
-my $doList  = "";
-my $errs    = "";
-my $doFetch = 1;
-my $date    = undef;
-my $branch  = "master";
-my $hash    = undef;
-my $canu    = "";
-my $resub   = "no";        #  Time of submission and time of resubmission.
-my $ropts   = "";          #  Options passed to resubmission.
+my $doHelp    = 0;
+my $doList    = "";
+my $errs      = "";
+my $doFetch   = 1;
+my $date      = undef;
+my $branch    = "master";
+my $hash      = undef;
+my $canu      = "";
+my $resub     = "no";        #  Time of submission and time of resubmission.
+my $ropts     = "";          #  Options passed to resubmission.
+my $sched     = undef;
+my $schedNext = undef;
 
 my $regr     = undef;      #  Eventually set to "$date-$branch-$hash"
 my $tests    = undef;
@@ -129,8 +132,12 @@ while (scalar(@ARGV) > 0) {
         saveOpt("$arg $canu");
     }
 
-    elsif ($arg eq "-resubmit") {
-        $resub = shift @ARGV;
+    elsif ($arg eq "-schedule") {
+        $sched     = shift @ARGV;
+    }
+
+    elsif ($arg eq "-expected") {
+        $schedNext = shift @ARGV;
     }
 
     elsif (-e "recipes/$test")           {  $tests = $test;        saveOpt($arg);  }
@@ -149,6 +156,8 @@ $errs .= "ERROR: -canu path must be to root of git clone.\n"                    
 
 if (($doHelp) || ($errs ne "")) {
     print "usage: $0 [options] [recipe-class | recipe-list]\n";
+    print "\n";
+    print "CODE UPDATE\n";
     print "  -(no-)fetch  Fetch (or not) updates to the repository.\n";
     print "\n";
     print "REPORTS\n";
@@ -174,29 +183,19 @@ if (($doHelp) || ($errs ne "")) {
     print "  recipe/NAME  Run test recipe/NAME\n";
     print "\n";
     print "RECURRENCY\n";
-    print "  -resubmit x  Submit another regression run to the grid, scheduled to start after some time\n";
-    print "               delay.  The 'x' parameter descibes both when to run and how frequently to run:\n";
+    print "  -schedule s  Read the testing schedule from file 's'.  The format is multiple lines of:\n";
+    print "                   DayOfWeek  NominalStartTime  NegOffset  PosOffset  recipes ...\n";
     print "\n";
-    print "                   YYYY-MM-DD-hh:mm+dh:dm\n";
-    print "                   \--------------/ \---/\n";
-    print "                       base_time      ^- delay_time\n";
+    print "                 DayOfWeek        - SUN, MON, TUE, WED, THR, FRI, SAT\n";
+    print "                 NominalStartTime - In 24-hour HH:MM format.\n";
+    print "                 recipes          - space separated list of recipes to run\n";
     print "\n";
-    print "               The next job will start at the first base_time + N * delay_time after the current\n";
-    print "               time (adjusted to prevent two jobs from running within delay_time/2 of each other).\n";
-    print "               This means that if the grid job is delayed for whatever reason (busy queue, user\n";
-    print "               hold) the 'missed' regression runs will be skipped.\n";
+    print "                 This file MUST be sorted by time, with SUN = 0.\n";
     print "\n";
-    print "               Example:  A delay_time of 01:00 (or 00:60) will run regression hourly.  If a run\n";
-    print "                         is delayed for several hours, when it eventually does start, it will\n";
-    print "                         resubmit itself to start on the next hour:\n";
-    print "                             a run at 04:00 - submits next to run at 05:00\n";
-    print "                                      06:34 - job finally starts, submits next for 08:00\n";
-    print "                                      08:00 - back on schedule\n";
-    print "\n";
-    print "               Example:  Both\n";
-    print "                            2021-02-05-23:59+168:00 and\n";
-    print "                            1971-07-09-23:59+168:00 will submit jobs to run weekly at\n";
-    print "                         midnight on Friday, starting with the next Friday.\n";
+    print "  -expected x  Submit another regression run to the grid.  'x' must be an integer between 0 and\n";
+    print "               the number of lines in the schedule file indicating the entry of the expected task\n";
+    print "               to run.  Regression jobs between that expected task and the current time will be\n";
+    print "               performed.  Generally only supplied on automatic resubmissions, not by humans.\n";
     print "\n";
     print "Logging ends up in Slack.  Some trivial progress is reported to stdout.\n";
     print "\n";
@@ -624,6 +623,18 @@ if (defined($tests) && -e "recipes/$tests") {
 }
 
 #
+#  But if we're following a schedule, use those recipes instead.
+#
+
+my $nextByDate;   #  Index of next schedule run.
+my $qat;          #  SGE qsub     formatted date of when to run again.
+my $sat;          #  Slurm sbatch formatted date of when to run again.
+
+if (defined($sched)) {
+    ($nextByDate, $qat, $sat, @recipes) = findScheduleRecipes($schedNext, $sched);
+}
+
+#
 #  EXECUTE: And run them.
 #
 
@@ -651,9 +662,10 @@ foreach my $recipe (@recipes) {
         next;
     }
 
-    system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
-
-    my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
+    my $eerr = 0;
+    #print STDERR "SUBMISSION of assembly job DISABLED\n";
+    $eerr  = system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
+    $eerr += system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
     $nSubmit++;
 
     if ($eerr) {
@@ -678,72 +690,7 @@ postFormattedText(undef, "$status```\n$details```\n");
 #
 #  RESUBMIT, if requested.
 #
-if ($resub ne "no") {
-    my ($stYY, $stMM, $stDD, $sthh, $stmm, $stSS);   #  Start time of this run.
-    my ($suYY, $suMM, $suDD, $suhh, $summ, $suSS);   #  Desired start time of the next run.
-
-    my ($delayhh, $delaymm, $delay);
-
-    #  Parse the start time of this run to decide a base resubmition time.
-
-    if ($now =~ m/(\d\d\d\d)-(\d\d)-(\d\d)-(\d\d):*(\d\d)/) {
-        $stYY = $1;
-        $stMM = $2;
-        $stDD = $3;
-        $sthh = $4;
-        $stmm = $5;
-        $stSS = timelocal(0, $stmm, $sthh, $stDD, $stMM-1, $stYY-1900);
-    }
-
-    #  Parse the resubmit information to figure out when we were supposed to
-    #  have started, and how long to wait for the next batch.
-
-    if ($resub =~ m/^(\d\d\d\d)-(\d\d)-(\d\d)-(\d\d):*(\d\d)\+(\d+):(\d\d)$/) {
-        $stYY = $1;
-        $stMM = $2;
-        $stDD = $3;
-        $sthh = $4;
-        $stmm = $5;
-        $stSS = timelocal(0, $stmm, $sthh, $stDD, $stMM-1, $stYY-1900);
-
-        $delayhh = $6;
-        $delaymm = $7;
-        $delay   = $6 * 3600 + $7 * 60;
-    }
-    elsif ($resub =~ m/^(\d+):(\d\d)$/) {
-        $delayhh = $1;
-        $delaymm = $2;
-        $delay   = $1 * 3600 + $2 * 60;
-    }
-    else {
-        postHeading("FAILED to resubmit; invalid -resub $resub");
-        exit(0);
-    }
-
-    #  Add the delay to the start time until the desired resubmit time is
-    #  after the current time.
-
-    $suSS = $stSS + $delay;
-
-    while ($suSS + $delay / 2 < time()) {
-        $suSS += $delay;
-    }
-
-    #  Convert that back to YY-MM-DD HH:MM
-
-    (undef, $summ, $suhh, $suDD, $suMM, $suYY) = localtime($suSS);
-
-    $suMM += 1;     #  Thanks.
-    $suYY += 1900;
-
-    my $basetime = sprintf("%04d-%02d-%02d-%02d:%02d",           $stYY, $stMM, $stDD, $sthh, $stmm);
-    my $resubmit = sprintf("%04d-%02d-%02d-%02d:%02d+%02d:%02d", $suYY, $suMM, $suDD, $suhh, $summ, $delayhh, $delaymm);
-
-    my $qat = sprintf("%04d%02d%02d%02d%02d.00",  $suYY, $suMM, $suDD, $suhh, $summ);   #  For qsub
-    my $sat = sprintf("%04d-%02d-%02d-%02d:%02d", $suYY, $suMM, $suDD, $suhh, $summ);   #  For sbatch
-
-    #  And resubmit.
-
+if (defined($nextByDate)) {
     open(F, "> submit.sh");
     print F "#!/bin/sh\n";
     print F "\n";
@@ -752,7 +699,7 @@ if ($resub ne "no") {
     print F "  . \$SGE_ROOT/\$SGE_CELL/common/settings.sh\n";
     print F "fi\n";
     print F "\n";
-    print F "perl regression.pl $ropts -resubmit $resubmit\n";
+    print F "perl regression.pl $ropts -schedule $sched -expected $nextByDate\n";
     print F "exit 0\n";
     close(F);
 
@@ -764,32 +711,35 @@ if ($resub ne "no") {
         postHeading("*HELP!*  Found both `$qsub` and `$sbatch`!");
     }
     elsif (-e $qsub) {
+        #print STDERR "SUBMISSION of next round DISABLED - $ropts -schedule $sched -expected $nextByDate\n";
         system("$qsub -cwd -j y -o /dev/null -a $qat ./submit.sh > ./submit.$$.err 2>&1");
     }
     elsif (-e $sbatch) {
+        #print STDERR "SUBMISSION of next round DISABLED - $ropts -schedule $sched -expected $nextByDate\n";
         system("$sbatch -D . -o /dev/null -b $sat -p quick ./submit.sh > ./submit.$$.err 2>&1");
     }
     else {
         postHeading("*HELP!*  Found neither `qsub` nor `sbatch`; don't know how to submit grid jobs.");
     }
 
+    my $job = "no status reported";
 
-    my $err;
+    if (-e "./submit.$$.err") {
+        open(F, "< ./submit.$$.err");
+        while (<F>) {
+            chomp;
 
-    open(F, "< ./submit.$$.err");
-    while (<F>) {
-        chomp;
-
-        if (m/Your\sjob\s(\d+)\s/) {
-            $err .= $1;
-        } else {
-            $err .= $_;
+            if (m/Your\sjob\s(\d+)\s/) {
+                $job = $1;
+            } else {
+                $job = $_;
+            }
         }
+        close(F);
     }
-    close(F);
 
-    print "*Resubmitted* to run at $resubmit ($err)\n";
-    postFormattedText(undef, "*Resubmitted* to run at $resubmit ($err).\n");
+    print "*Resubmitted* to run at $sat ($job)\n";
+    postFormattedText(undef, "*Resubmitted* to run at $sat (job $job).\n");
 
     unlink "submit.sh";
     unlink "submit.$$.err";
