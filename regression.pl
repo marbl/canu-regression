@@ -387,7 +387,7 @@ if (($canu eq "") && (-d $gitrepo)) {
         system("cd $gitrepo && git checkout $branch > checkout.err 2>&1");
         system("cd $gitrepo && git submodule update > update.err   2>&1");
 
-        open(F, "< checkout.err");
+        open(F, "< $gitrepo/checkout.err");
         while (<F>) {
             next   if ($_ =~ m/^Switched\sto/);
             next   if ($_ =~ m/^Your\sbranch\sis\sup\sto\sdate\swith/);
