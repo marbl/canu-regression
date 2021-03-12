@@ -613,18 +613,22 @@ my $nExist    = 0;   #  Num tests that have already been started
 my $nFinished = 0;   #  Num tests that are finsihed
 my $nSubmit   = 0;   #  Num tests that were submitted
 
+my $status;
+my $details;
+
 foreach my $recipe (@recipes) {
     if (-e "$wrkdir/$regr/$recipe/quast/report.txt") {
+        $details .= "  Finished: $recipe.\n";
         $nFinished++;
         next;
     }
 
     if (-e "$wrkdir/$regr/$recipe-submit.sh") {
+        $details .= "  Failed:   $recipe.\n";
         $nExist++;
         next;
     }
 
-    postHeading("Start $regr $recipe.");
     system("cd $wrkdir/$regr && ln -s ../recipes/$recipe/submit.sh $recipe-submit.sh");
 
     my $eerr = system("cd $wrkdir/$regr && sh $recipe-submit.sh $recipe > $recipe-submit.err 2>&1");
@@ -634,9 +638,9 @@ foreach my $recipe (@recipes) {
         postHeading("FAILED!.");
         postFile(undef, "$wrkdir/$regr/$recipe-submit.err");
     }
-}
 
-my $status;
+    $details .= "  Started:  $recipe.\n";
+}
 
 if    (($nFinished == 0) && ($nExist == 0) && ($nSubmit  > 0))  {  $status = "$nSubmit recipes *started* in $regr.\n";  }
 elsif (($nFinished  > 0) && ($nExist == 0) && ($nSubmit == 0))  {  $status = "*All complete* in $regr.\n";  }
@@ -645,8 +649,9 @@ elsif (($nFinished  > 0) && ($nExist  > 0) && ($nSubmit == 0))  {  $status = "So
 else                                                            {  $status = "$nSubmit recipes *started*, $nExist recipes *running*, $nFinished *finished* in $regr.\n";  }
 
 print "$status";
-postFormattedText(undef, $status);
+print "$details\n";
 
+postFormattedText(undef, "$status```\n$details```\n");
 
 #
 #  RESUBMIT, if requested.
