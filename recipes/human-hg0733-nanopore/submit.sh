@@ -37,6 +37,8 @@ fi
   -p asm \
   -d $recp \
   genomeSize=3100000000 \
+  corMemory=36g \
+  corPartitions=500 corPartitionMin=5000 \
   onSuccess=../../recipes/$recp/success.sh \
   onFailure=../../recipes/$recp/failure.sh \
   -nanopore ../recipes/$recp/reads/*[gx]z
