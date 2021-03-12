@@ -39,6 +39,6 @@ fi
   genomeSize=3100000000 \
   onSuccess=../../recipes/$recp/success.sh \
   onFailure=../../recipes/$recp/failure.sh \
-  -pacbio-nanopore ../recipes/$recp/reads/*xz
+  -nanopore ../recipes/$recp/reads/*[gx]z
 
 exit 0
