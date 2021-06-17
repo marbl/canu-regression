@@ -472,7 +472,9 @@ if (!defined($hash)) {
 }
 
 if (defined($hash)) {
-    undef $date;
+    my @matches;
+    my $hl = length($hash);
+    my $hf;
 
     open(F, "< $gitrepo/date-to-hash") or die "Failed to open '$gitrepo/date-to-hash' for reading: $!\n";
     while (<F>) {
@@ -480,20 +482,40 @@ if (defined($hash)) {
 
         if (m/^(\d\d\d\d-\d\d-\d\d-\d\d\d\d)\s+(.*)$/) {
             my $d = $1;
-            my $h = $2;
+            my $h = substr($2, 0, $hl);
 
-            $date = $d   if ($hash eq $h);
+            #print STDERR "TEST hash '$hash' vs '$d' '$h' from $2\n";
+            if ($hash eq $h) {
+                $date = $d;
+                $hf   = $2;
+                push @matches, $_;
+            }
         } else {
             die "Malformed date-to-hash: '$_'\n";
         }
     }
     close(F);
 
-    if (!defined($date)) {
+    if    (scalar(@matches) == 0) {
         die "Failed to find date for hash $hash.  Wrong branch?\n";
     }
+    elsif (scalar(@matches) == 1) {
+        if ($hl < 40) {
+            print STDERR "Found date $date for hash prefix $hash (full hash $hf)\n";
+        } else {
+            print STDERR "Found date $date for hash $hash\n";
+        }
 
-    $regr = "$date-$branch-" . substr($hash, 0, 12);
+        $hash = $hf;
+        $regr = "$date-$branch-" . substr($hash, 0, 12);
+    }
+    else {
+        print STDERR "Multiple matches for hash $hash:\n";
+        foreach my $m (@matches) {
+            print STDERR "  $m\n";
+        }
+        die "Pick one and restart.\n";
+    }
 }
 
 #
