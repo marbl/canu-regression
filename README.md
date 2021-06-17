@@ -27,6 +27,7 @@ Nothing more than a list of special dates.  It's quite out of date.
 Date            | Hash                                     | Milestone
 --------------- | ---------------------------------------- | ------------------------------------------------------
 2020-10-16-1821 | 5638f7d9a5379373310ab62c28aa0cdbd864722d | Canu 2.1.1, branch v2.1-maintenance
+2020-09-18-1243 | b9826425676a2eb019fd2ad2f240f2eebd79c35a | mhap -minlength option
 2020-08-24-1052 | dd71f16d5c31e0f6d30297c215a9c62353079da9 | Canu 2.1,   branch v2.1-maintenance
 2020-08-19-2326 | 7bb8a2435e3f8d2d9a73be44b2c9fef3cccd32a5 | Canu 2.1    master, (just after release)
 2020-07-22-1735 | afcb34fde3fb9445d57f8b311f92794f9c96baa5 | Build in 'build' instead of 'OSTYPE-MACHINETYPE'.  (Regression might not work before this)
